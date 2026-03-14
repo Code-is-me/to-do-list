@@ -21,6 +21,7 @@ const timerDisplay  = document.getElementById('timer-display');
 const timerStatus   = document.getElementById('timer-status');
 const playPauseBtn  = document.getElementById('timer-play-pause');
 const resetBtn      = document.getElementById('timer-reset');
+const sub10Btn      = document.getElementById('timer-sub10');
 const sub5Btn       = document.getElementById('timer-sub5');
 const add5Btn       = document.getElementById('timer-add5');
 const add10Btn      = document.getElementById('timer-add10');
@@ -292,6 +293,7 @@ function addTime(minutes) {
 // Wire timer buttons to their actions.
 playPauseBtn.addEventListener('click', togglePlayPause);
 resetBtn.addEventListener('click', resetTimer);
+sub10Btn.addEventListener('click', () => addTime(-10));
 sub5Btn.addEventListener('click', () => addTime(-5));
 add5Btn.addEventListener('click', () => addTime(5));
 add10Btn.addEventListener('click', () => addTime(10));
