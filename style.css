@@ -68,22 +68,18 @@ h1 {
 .timer-display {
     font-size: clamp(48px, 12vw, 84px);
     font-family: 'Press Start 2P', monospace;
-    color: #ff3300;
-    text-shadow: 0 0 20px #ff3300, 0 0 40px #ff330055;
+    color: var(--timer-color, #ff3300);
+    text-shadow: 0 0 20px var(--timer-glow, #ff3300), 0 0 40px var(--timer-shadow, #ff330055);
     letter-spacing: 6px;
     margin-bottom: 8px;
-    transition: color 0.3s, text-shadow 0.3s;
+    transition: color 0.12s, text-shadow 0.12s;
 }
 
 .timer-display.running {
-    color: #ff6600;
-    text-shadow: 0 0 20px #ff6600, 0 0 40px #ff660077;
     animation: pulse 1s ease-in-out infinite;
 }
 
 .timer-display.danger {
-    color: #ff0033;
-    text-shadow: 0 0 24px #ff0033, 0 0 50px #ff003388;
     animation: pulse-fast 0.5s ease-in-out infinite;
 }
 
@@ -118,6 +114,76 @@ h1 {
     justify-content: center;
     gap: 12px;
     flex-wrap: wrap;
+}
+
+.timer-theme-editor {
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid #2f2f58;
+}
+
+.timer-theme-title {
+    font-size: 10px;
+    color: #8c94d9;
+    margin-bottom: 12px;
+    letter-spacing: 2px;
+}
+
+.timer-theme-controls {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.timer-color-control {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #b7baf4;
+}
+
+.timer-color-control input[type="color"] {
+    width: 48px;
+    height: 34px;
+    padding: 0;
+    border: 2px solid #40408e;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+}
+
+.timer-color-control input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.timer-color-control input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 3px;
+}
+
+#timer-color-reset {
+    padding: 8px 12px;
+    background: #151534;
+    border: 1px solid #43439b;
+    border-radius: 4px;
+    color: #b4b8ff;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+#timer-color-reset:hover {
+    background: #1e1e46;
+    border-color: #6a6aff;
+    color: #e0e3ff;
 }
 
 .timer-controls button,
