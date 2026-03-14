@@ -237,6 +237,7 @@ h1 {
     box-shadow: 0 0 8px #22662233, inset 0 -3px 0 #011101;
 }
 
+#timer-sub10,
 #timer-sub5 {
     background: #2a0a0a;
     border: 2px solid #662222;
@@ -252,6 +253,7 @@ h1 {
     transform: translateY(-2px);
 }
 
+#timer-sub10:hover,
 #timer-sub5:hover {
     background: #3a1010;
     border-color: #aa3333;
