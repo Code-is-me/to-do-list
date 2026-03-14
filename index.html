@@ -1,54 +1,80 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Character encoding + responsive viewport for mobile support -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Main stylesheet for all layout, colors, and animations -->
     <link rel="stylesheet" href="style.css">
+
+    <!-- Fonts:
+         - Press Start 2P: retro headings/buttons
+         - Rajdhani: readable body and task text -->
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Browser tab title -->
     <title>Quest Log</title>
 </head>
 <body>
+    <!-- App title and subtitle -->
     <h1>&#9876; Quest Log</h1>
-    <p class="subtitle">Complete your quests, Hassan!</p>
+    <p class="subtitle">Complete your quests, Hero!</p>
 
-    <!-- Pomodoro Timer -->
+    <!-- Pomodoro timer section:
+         JS updates timer display, status text, and play/pause button text -->
     <div class="pomodoro-section">
         <h2 class="pomodoro-title">&#9876; Focus Timer</h2>
         <div class="timer-display" id="timer-display">25:00</div>
         <div class="timer-status" id="timer-status">READY</div>
+
+        <!-- Primary timer controls -->
         <div class="timer-controls">
             <button id="timer-play-pause">&#9654; START</button>
             <button id="timer-reset">&#8635; RESET</button>
         </div>
+
+        <!-- Quick-add time controls -->
         <div class="timer-extra">
+            <button id="timer-sub5">-5 MIN</button>
             <button id="timer-add5">+5 MIN</button>
             <button id="timer-add10">+10 MIN</button>
         </div>
     </div>
 
+    <!-- Add new quest input row -->
     <div class="add-task-section">
         <input type="text" id="new-task-input" placeholder="Enter a new quest..." maxlength="100">
         <button id="add-task-btn">+ Add Quest</button>
     </div>
 
-    <!-- Active Quests -->
+    <!-- Active quests header and counter -->
     <div class="section-header">
         <span class="section-title">&#9876; Active Quests</span>
         <span class="task-count" id="active-count">0</span>
     </div>
+
+    <!-- Empty-state message shown when there are no active tasks -->
     <p class="empty-state" id="active-empty">All quests complete, hero!</p>
+
+    <!-- Active tasks list (new tasks are appended here by JS) -->
     <ul class="task-list" id="active-list">
     </ul>
 
-    <!-- Completed Quests -->
+    <!-- Completed quests header, counter, and clear action -->
     <div class="section-header completed-header">
         <span class="section-title">&#9733; Completed Quests</span>
         <span class="task-count completed-count" id="completed-count">0</span>
         <button id="clear-completed-btn">CLEAR ALL</button>
     </div>
+
+    <!-- Empty-state message shown when there are no completed tasks -->
     <p class="empty-state" id="completed-empty">No quests completed yet...</p>
+
+    <!-- Completed tasks list (checked tasks are moved here by JS) -->
     <ul class="task-list completed-list" id="completed-list"></ul>
 
+    <!-- Main app logic: timer, task management, and sound effects -->
     <script src="logic.js"></script>
 </body>
 </html>

@@ -1,25 +1,33 @@
 * {
+    /* Include padding/border in element width calculations */
     box-sizing: border-box;
+    /* Reset default browser spacing */
     margin: 0;
     padding: 0;
 }
 
 body {
+    /* Base dark background color behind animated gradients */
     background-color: #0d0d1a;
+    /* Layered gradients create the moving neon-night effect */
     background-image:
         radial-gradient(ellipse at 20% 40%, #1e0845 0%, transparent 50%),
         radial-gradient(ellipse at 80% 15%, #061830 0%, transparent 50%),
         radial-gradient(ellipse at 55% 85%, #0d0a30 0%, transparent 45%),
         radial-gradient(ellipse at 75% 65%, #08141e 0%, transparent 40%);
+    /* Larger gradient canvas allows smoother drift motion */
     background-size: 300% 300%;
+    /* Controls moving background speed (lower value = faster) */
     animation: bgDrift 14s ease-in-out infinite alternate;
     min-height: 100vh;
+    /* Main readable font for body content */
     font-family: 'Rajdhani', sans-serif;
     color: #e0e0e0;
     padding: 30px 20px 60px;
 }
 
 @keyframes bgDrift {
+    /* Multi-layer background positions at each keyframe */
     0%   { background-position: 0% 0%,   100% 0%,   50% 100%, 20% 80%; }
     25%  { background-position: 60% 30%,  20% 70%,   80% 20%,  70% 40%; }
     50%  { background-position: 30% 80%,  70% 20%,   10% 55%,  90% 60%; }
@@ -28,6 +36,8 @@ body {
 }
 
 h1 {
+    /* Retro display font for title */
+    font-family: 'Press Start 2P', monospace;
     text-align: center;
     color: #ffd700;
     font-size: clamp(16px, 3vw, 26px);
@@ -47,6 +57,7 @@ h1 {
 
 /* ── Pomodoro Timer ── */
 .pomodoro-section {
+    /* Center timer container with card styling */
     max-width: 620px;
     margin: 0 auto 32px;
     background: #12122a;
@@ -66,7 +77,10 @@ h1 {
 }
 
 .timer-display {
-    font-size: clamp(38px, 10vw, 68px);
+    /* Responsive timer text size */
+    font-size: clamp(48px, 12vw, 84px);
+    /* Pixel look for timer number */
+    font-family: 'Press Start 2P', monospace;
     color: #ff3300;
     text-shadow: 0 0 20px #ff3300, 0 0 40px #ff330055;
     letter-spacing: 6px;
@@ -75,12 +89,14 @@ h1 {
 }
 
 .timer-display.running {
+    /* Applied by JS while timer is actively running */
     color: #ff6600;
     text-shadow: 0 0 20px #ff6600, 0 0 40px #ff660077;
     animation: pulse 1s ease-in-out infinite;
 }
 
 .timer-display.danger {
+    /* Applied by JS in the last 60 seconds */
     color: #ff0033;
     text-shadow: 0 0 24px #ff0033, 0 0 50px #ff003388;
     animation: pulse-fast 0.5s ease-in-out infinite;
@@ -122,6 +138,7 @@ h1 {
 
 .timer-controls button,
 .timer-extra button {
+    /* Retro control style for timer buttons */
     padding: 10px 16px;
     font-family: 'Press Start 2P', monospace;
     font-size: 9px;
@@ -171,11 +188,25 @@ h1 {
     box-shadow: 0 0 8px #22662233, inset 0 -3px 0 #011101;
 }
 
+#timer-sub5 {
+    background: #2a0a0a;
+    border: 2px solid #662222;
+    color: #ff6666;
+    box-shadow: 0 0 8px #66222233, inset 0 -3px 0 #110101;
+}
+
 #timer-add5:hover,
 #timer-add10:hover {
     background: #112211;
     border-color: #33aa33;
     box-shadow: 0 0 16px #33aa3366, inset 0 -3px 0 #011101;
+    transform: translateY(-2px);
+}
+
+#timer-sub5:hover {
+    background: #3a1010;
+    border-color: #aa3333;
+    box-shadow: 0 0 16px #aa333366, inset 0 -3px 0 #1a0303;
     transform: translateY(-2px);
 }
 
@@ -188,6 +219,7 @@ h1 {
 }
 
 #new-task-input {
+    /* Main task input field */
     flex: 1;
     padding: 12px 14px;
     background: #12122a;
@@ -213,6 +245,7 @@ h1 {
 }
 
 #add-task-btn {
+    /* Button that triggers addTask() in JS */
     padding: 12px 16px;
     background: #3a3aff;
     border: 2px solid #6060ff;
@@ -239,12 +272,14 @@ h1 {
 
 /* ── Task list ── */
 .task-list {
+    /* Shared list style for active + completed sections */
     max-width: 620px;
     margin: 0 auto;
     padding: 0;
 }
 
 .task-list li {
+    /* Individual task card */
     list-style: none;
     margin-bottom: 10px;
     background: #12122a;
@@ -269,6 +304,7 @@ h1 {
 
 /* ── Custom checkbox ── */
 .task-list input[type="checkbox"] {
+    /* Custom checkbox replaces browser default style */
     appearance: none;
     -webkit-appearance: none;
     width: 22px;
@@ -294,6 +330,7 @@ h1 {
 }
 
 .task-list input[type="checkbox"]:checked::after {
+    /* Draw check mark when selected */
     content: '✓';
     position: absolute;
     color: #ffffff;
@@ -315,6 +352,7 @@ h1 {
 }
 
 .task-list .completed {
+    /* JS adds this class when a task is completed */
     text-decoration: line-through;
     color: #33335a;
 }
@@ -328,6 +366,7 @@ h1 {
 
 /* ── Section headers ── */
 .section-header {
+    /* Section labels for active/completed groups */
     max-width: 620px;
     margin: 0 auto 12px;
     display: flex;
@@ -375,6 +414,7 @@ h1 {
 }
 
 #clear-completed-btn {
+    /* Clears all completed tasks via JS event listener */
     padding: 5px 12px;
     background: #2a0a0a;
     border: 1px solid #662222;
@@ -396,6 +436,7 @@ h1 {
 
 /* ── Empty state messages ── */
 .empty-state {
+    /* Informational message shown when a list is empty */
     max-width: 620px;
     margin: 0 auto 12px;
     font-family: 'Rajdhani', sans-serif;
