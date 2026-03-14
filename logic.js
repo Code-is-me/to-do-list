@@ -4,8 +4,17 @@ const POMODORO_DEFAULT = 25 * 60;
 
 // Timer state values.
 let totalSeconds = POMODORO_DEFAULT;
+let sessionDurationSeconds = POMODORO_DEFAULT;
 let isRunning = false;
 let intervalId = null;
+
+const TIMER_COLOR_DEFAULTS = {
+    start: '#44ff88',
+    mid: '#ffb000',
+    end: '#ff3355'
+};
+
+let timerPalette = { ...TIMER_COLOR_DEFAULTS };
 
 // Timer-related DOM references.
 const timerDisplay  = document.getElementById('timer-display');
@@ -15,6 +24,10 @@ const resetBtn      = document.getElementById('timer-reset');
 const sub5Btn       = document.getElementById('timer-sub5');
 const add5Btn       = document.getElementById('timer-add5');
 const add10Btn      = document.getElementById('timer-add10');
+const timerColorStartInput = document.getElementById('timer-color-start');
+const timerColorMidInput = document.getElementById('timer-color-mid');
+const timerColorEndInput = document.getElementById('timer-color-end');
+const timerColorResetBtn = document.getElementById('timer-color-reset');
 
 // Convert total seconds to MM:SS format for the timer display.
 function formatTime(secs) {
@@ -23,11 +36,90 @@ function formatTime(secs) {
     return `${m}:${s}`;
 }
 
+function hexToRgb(hex) {
+    const normalized = hex.replace('#', '');
+    const safeHex = normalized.length === 3
+        ? normalized.split('').map((char) => char + char).join('')
+        : normalized;
+
+    return {
+        r: parseInt(safeHex.slice(0, 2), 16),
+        g: parseInt(safeHex.slice(2, 4), 16),
+        b: parseInt(safeHex.slice(4, 6), 16)
+    };
+}
+
+function interpolateColor(startHex, endHex, amount) {
+    const start = hexToRgb(startHex);
+    const end = hexToRgb(endHex);
+    const clampedAmount = Math.min(Math.max(amount, 0), 1);
+
+    return {
+        r: Math.round(start.r + ((end.r - start.r) * clampedAmount)),
+        g: Math.round(start.g + ((end.g - start.g) * clampedAmount)),
+        b: Math.round(start.b + ((end.b - start.b) * clampedAmount))
+    };
+}
+
+function rgbToCss(rgb, alpha = 1) {
+    return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+}
+
+function syncTimerColorInputs() {
+    timerColorStartInput.value = timerPalette.start;
+    timerColorMidInput.value = timerPalette.mid;
+    timerColorEndInput.value = timerPalette.end;
+}
+
+function saveTimerPalette() {
+    localStorage.setItem('quest-log-timer-palette', JSON.stringify(timerPalette));
+}
+
+function loadTimerPalette() {
+    const savedPalette = localStorage.getItem('quest-log-timer-palette');
+    if (!savedPalette) return;
+
+    try {
+        const parsedPalette = JSON.parse(savedPalette);
+        timerPalette = {
+            start: parsedPalette.start || TIMER_COLOR_DEFAULTS.start,
+            mid: parsedPalette.mid || TIMER_COLOR_DEFAULTS.mid,
+            end: parsedPalette.end || TIMER_COLOR_DEFAULTS.end
+        };
+    } catch (_) {
+        timerPalette = { ...TIMER_COLOR_DEFAULTS };
+    }
+}
+
 // Update timer text and visual state classes based on current time.
 function updateDisplay() {
+    const safeDuration = Math.max(sessionDurationSeconds, 1);
+    const remainingRatio = Math.min(Math.max(totalSeconds / safeDuration, 0), 1);
+    const glowAlpha = remainingRatio > 0.5 ? '0.55' : '0.75';
+    const shadowAlpha = remainingRatio > 0.5 ? '0.25' : '0.45';
+    const blendedColor = remainingRatio > 0.5
+        ? interpolateColor(timerPalette.mid, timerPalette.start, (remainingRatio - 0.5) / 0.5)
+        : interpolateColor(timerPalette.end, timerPalette.mid, remainingRatio / 0.5);
+    const timerColor = rgbToCss(blendedColor, 1);
+    const timerGlow = rgbToCss(blendedColor, glowAlpha);
+    const timerShadow = rgbToCss(blendedColor, shadowAlpha);
+
     timerDisplay.textContent = formatTime(totalSeconds);
+    timerDisplay.style.setProperty('--timer-color', timerColor);
+    timerDisplay.style.setProperty('--timer-glow', timerGlow);
+    timerDisplay.style.setProperty('--timer-shadow', timerShadow);
     timerDisplay.classList.toggle('danger',  isRunning && totalSeconds <= 60);
     timerDisplay.classList.toggle('running', isRunning && totalSeconds > 60);
+}
+
+function updateTimerPalette() {
+    timerPalette = {
+        start: timerColorStartInput.value,
+        mid: timerColorMidInput.value,
+        end: timerColorEndInput.value
+    };
+    saveTimerPalette();
+    updateDisplay();
 }
 
 // Sound effect played when a new task is added.
@@ -181,6 +273,7 @@ function resetTimer() {
     clearInterval(intervalId);
     isRunning = false;
     totalSeconds = POMODORO_DEFAULT;
+    sessionDurationSeconds = POMODORO_DEFAULT;
     updateDisplay();
     timerStatus.textContent = 'READY';
     playPauseBtn.textContent = '\u25B6 START';
@@ -191,6 +284,7 @@ function resetTimer() {
 // Add or subtract minutes from the timer (clamped to zero).
 function addTime(minutes) {
     totalSeconds = Math.max(0, totalSeconds + (minutes * 60));
+    sessionDurationSeconds = Math.max(totalSeconds, 1);
     updateDisplay();
     if (!isRunning) timerStatus.textContent = 'READY';
 }
@@ -201,8 +295,19 @@ resetBtn.addEventListener('click', resetTimer);
 sub5Btn.addEventListener('click', () => addTime(-5));
 add5Btn.addEventListener('click', () => addTime(5));
 add10Btn.addEventListener('click', () => addTime(10));
+timerColorStartInput.addEventListener('input', updateTimerPalette);
+timerColorMidInput.addEventListener('input', updateTimerPalette);
+timerColorEndInput.addEventListener('input', updateTimerPalette);
+timerColorResetBtn.addEventListener('click', () => {
+    timerPalette = { ...TIMER_COLOR_DEFAULTS };
+    syncTimerColorInputs();
+    saveTimerPalette();
+    updateDisplay();
+});
 
 // Initial render on page load.
+loadTimerPalette();
+syncTimerColorInputs();
 updateDisplay();
 
 // ── Task list ──
