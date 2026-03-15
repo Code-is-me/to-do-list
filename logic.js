@@ -387,6 +387,63 @@ function playTaskInProgress() {
     } catch (_) { }
 }
 
+// Sound effect played when a single task is deleted.
+function playTaskDelete() {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        [
+            { freq: 293.66, start: 0,    dur: 0.08 },
+            { freq: 220.00, start: 0.07, dur: 0.12 },
+        ].forEach(({ freq, start, dur }) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+            gain.gain.setValueAtTime(0.16, ctx.currentTime + start);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+            osc.start(ctx.currentTime + start);
+            osc.stop(ctx.currentTime + start + dur);
+        });
+    } catch (_) { }
+}
+
+// Alerting warning sound played before clear-all confirmation.
+function playClearAllAlert() {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        [
+            { freq: 880.00, start: 0.00, dur: 0.12 },
+            { freq: 660.00, start: 0.12, dur: 0.12 },
+            { freq: 880.00, start: 0.24, dur: 0.12 },
+        ].forEach(({ freq, start, dur }) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+            gain.gain.setValueAtTime(0.32, ctx.currentTime + start);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+            osc.start(ctx.currentTime + start);
+            osc.stop(ctx.currentTime + start + dur);
+        });
+    } catch (_) { }
+}
+
+function confirmAndClearList(listEl, sectionLabel) {
+    const taskCount = listEl.querySelectorAll('li').length;
+    if (taskCount === 0) return;
+
+    playClearAllAlert();
+    const shouldClear = window.confirm(`Are you sure you want to clear all ${sectionLabel} tasks?`);
+    if (!shouldClear) return;
+
+    listEl.innerHTML = '';
+    updateCounts();
+}
+
 function setTaskState(li, state, shouldPlayMoveSound = false) {
     const checkbox = li.querySelector('input[type="checkbox"]');
     const taskText = li.querySelector('span');
@@ -444,6 +501,7 @@ function attachDeleteButtonListener(button) {
     button.addEventListener('click', () => {
         const li = button.closest('li');
         li.remove();
+        playTaskDelete();
         updateCounts();
     });
 }
@@ -499,20 +557,16 @@ newTaskInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') addTask();
 });
 
-// Clear completed section quickly.
 clearActiveBtn.addEventListener('click', () => {
-    activeList.innerHTML = '';
-    updateCounts();
+    confirmAndClearList(activeList, 'active');
 });
 
 clearInProgressBtn.addEventListener('click', () => {
-    inProgressList.innerHTML = '';
-    updateCounts();
+    confirmAndClearList(inProgressList, 'in-progress');
 });
 
 clearCompletedBtn.addEventListener('click', () => {
-    completedList.innerHTML = '';
-    updateCounts();
+    confirmAndClearList(completedList, 'completed');
 });
 
 // Initial counter/empty-state sync on first load.
