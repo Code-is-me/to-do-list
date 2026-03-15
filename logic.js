@@ -315,22 +315,30 @@ updateDisplay();
 // ── Task list ──
 // Task-related DOM references.
 const activeList = document.getElementById('active-list');
+const inProgressList = document.getElementById('in-progress-list');
 const completedList = document.getElementById('completed-list');
 const addTaskBtn = document.getElementById('add-task-btn');
 const newTaskInput = document.getElementById('new-task-input');
 const activeCountEl = document.getElementById('active-count');
+const inProgressCountEl = document.getElementById('in-progress-count');
 const completedCountEl = document.getElementById('completed-count');
 const activeEmpty = document.getElementById('active-empty');
+const inProgressEmpty = document.getElementById('in-progress-empty');
 const completedEmpty = document.getElementById('completed-empty');
+const clearActiveBtn = document.getElementById('clear-active-btn');
+const clearInProgressBtn = document.getElementById('clear-in-progress-btn');
 const clearCompletedBtn = document.getElementById('clear-completed-btn');
 
 // Recalculate counters and show/hide empty-state messages.
 function updateCounts() {
     const ac = activeList.querySelectorAll('li').length;
+    const ipc = inProgressList.querySelectorAll('li').length;
     const cc = completedList.querySelectorAll('li').length;
     activeCountEl.textContent = ac;
+    inProgressCountEl.textContent = ipc;
     completedCountEl.textContent = cc;
     activeEmpty.style.display = ac === 0 ? 'block' : 'none';
+    inProgressEmpty.style.display = ipc === 0 ? 'block' : 'none';
     completedEmpty.style.display = cc === 0 ? 'block' : 'none';
 }
 
@@ -356,47 +364,127 @@ function playTaskDone() {
     } catch (_) { }
 }
 
+// Sound effect played when a task enters the in-progress section.
+function playTaskInProgress() {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        [
+            { freq: 392.00, start: 0,    dur: 0.10 },
+            { freq: 523.25, start: 0.09, dur: 0.14 },
+            { freq: 659.25, start: 0.20, dur: 0.20 },
+        ].forEach(({ freq, start, dur }) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+            gain.gain.setValueAtTime(0.2, ctx.currentTime + start);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+            osc.start(ctx.currentTime + start);
+            osc.stop(ctx.currentTime + start + dur);
+        });
+    } catch (_) { }
+}
+
+function setTaskState(li, state, shouldPlayMoveSound = false) {
+    const checkbox = li.querySelector('input[type="checkbox"]');
+    const taskText = li.querySelector('span');
+    const statusBtn = li.querySelector('.task-status-btn');
+
+    li.dataset.state = state;
+
+    if (state === 'completed') {
+        checkbox.checked = true;
+        taskText.classList.add('completed');
+        li.classList.add('completed-task');
+        li.classList.remove('in-progress-task');
+        completedList.appendChild(li);
+    } else if (state === 'in-progress') {
+        checkbox.checked = false;
+        taskText.classList.remove('completed');
+        li.classList.remove('completed-task');
+        li.classList.add('in-progress-task');
+        statusBtn.textContent = 'BACK';
+        inProgressList.appendChild(li);
+        if (shouldPlayMoveSound) playTaskInProgress();
+    } else {
+        checkbox.checked = false;
+        taskText.classList.remove('completed');
+        li.classList.remove('completed-task', 'in-progress-task');
+        statusBtn.textContent = 'START';
+        activeList.appendChild(li);
+    }
+
+    updateCounts();
+}
+
 // Attach change behavior to one checkbox.
 function attachCheckboxListener(checkbox) {
     checkbox.addEventListener('change', () => {
         const li = checkbox.closest('li');
-        const taskText = checkbox.nextElementSibling;
-
         if (checkbox.checked) {
-            taskText.classList.add('completed');
-            completedList.appendChild(li);
+            setTaskState(li, 'completed');
             playTaskDone();
         } else {
-            taskText.classList.remove('completed');
-            activeList.appendChild(li);
+            setTaskState(li, 'active');
         }
+    });
+}
 
+function attachStatusButtonListener(button) {
+    button.addEventListener('click', () => {
+        const li = button.closest('li');
+        const nextState = li.dataset.state === 'in-progress' ? 'active' : 'in-progress';
+        setTaskState(li, nextState, nextState === 'in-progress');
+    });
+}
+
+function attachDeleteButtonListener(button) {
+    button.addEventListener('click', () => {
+        const li = button.closest('li');
+        li.remove();
         updateCounts();
     });
 }
 
-// Attach to existing tasks.
-document.querySelectorAll('#active-list input[type="checkbox"]').forEach(attachCheckboxListener);
+function createTaskItem(text) {
+    const li = document.createElement('li');
+    const label = document.createElement('label');
+    const checkbox = document.createElement('input');
+    const span = document.createElement('span');
+    const statusBtn = document.createElement('button');
+    const deleteBtn = document.createElement('button');
+
+    checkbox.type = 'checkbox';
+    span.textContent = text;
+    statusBtn.type = 'button';
+    statusBtn.className = 'task-status-btn';
+    statusBtn.textContent = 'START';
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'task-delete-btn';
+    deleteBtn.textContent = 'DELETE';
+
+    label.appendChild(checkbox);
+    label.appendChild(span);
+    li.appendChild(label);
+    li.appendChild(statusBtn);
+    li.appendChild(deleteBtn);
+
+    attachCheckboxListener(checkbox);
+    attachStatusButtonListener(statusBtn);
+    attachDeleteButtonListener(deleteBtn);
+
+    return li;
+}
 
 // Create and append a new task item from user input.
 function addTask() {
     const text = newTaskInput.value.trim();
     if (!text) return;
 
-    const li = document.createElement('li');
-    const label = document.createElement('label');
-    const checkbox = document.createElement('input');
-    const span = document.createElement('span');
-
-    checkbox.type = 'checkbox';
-    span.textContent = text;
-
-    label.appendChild(checkbox);
-    label.appendChild(span);
-    li.appendChild(label);
+    const li = createTaskItem(text);
     activeList.appendChild(li);
-
-    attachCheckboxListener(checkbox);
     updateCounts();
     playAddTask();
     newTaskInput.value = '';
@@ -412,6 +500,16 @@ newTaskInput.addEventListener('keydown', (e) => {
 });
 
 // Clear completed section quickly.
+clearActiveBtn.addEventListener('click', () => {
+    activeList.innerHTML = '';
+    updateCounts();
+});
+
+clearInProgressBtn.addEventListener('click', () => {
+    inProgressList.innerHTML = '';
+    updateCounts();
+});
+
 clearCompletedBtn.addEventListener('click', () => {
     completedList.innerHTML = '';
     updateCounts();
