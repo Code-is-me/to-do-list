@@ -73,6 +73,7 @@
     <div class="section-header">
         <span class="section-title">&#9876; Active Quests</span>
         <span class="task-count" id="active-count">0</span>
+        <button id="clear-active-btn">CLEAR ALL</button>
     </div>
 
     <!-- Empty-state message shown when there are no active tasks -->
@@ -81,6 +82,19 @@
     <!-- Active tasks list (new tasks are appended here by JS) -->
     <ul class="task-list" id="active-list">
     </ul>
+
+    <!-- In-progress quests header and counter -->
+    <div class="section-header in-progress-header">
+        <span class="section-title">&#9203; In Progress</span>
+        <span class="task-count in-progress-count" id="in-progress-count">0</span>
+        <button id="clear-in-progress-btn">CLEAR ALL</button>
+    </div>
+
+    <!-- Empty-state message shown when there are no in-progress tasks -->
+    <p class="empty-state" id="in-progress-empty">No quests in progress...</p>
+
+    <!-- In-progress tasks list -->
+    <ul class="task-list in-progress-list" id="in-progress-list"></ul>
 
     <!-- Completed quests header, counter, and clear action -->
     <div class="section-header completed-header">
