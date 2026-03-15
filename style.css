@@ -330,6 +330,9 @@ h1 {
     border: 2px solid #2a2a5e;
     border-radius: 6px;
     padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
     box-shadow: 0 2px 8px #00000066;
     transition: border-color 0.2s, box-shadow 0.2s;
 }
@@ -344,6 +347,8 @@ h1 {
     align-items: center;
     gap: 14px;
     cursor: pointer;
+    flex: 1;
+    min-width: 0;
 }
 
 .task-list input[type="checkbox"] {
@@ -401,6 +406,12 @@ h1 {
     box-shadow: none !important;
 }
 
+.in-progress-list li,
+.in-progress-task {
+    border-color: #225577;
+    box-shadow: 0 0 14px #22557733;
+}
+
 .section-header {
     max-width: 620px;
     margin: 0 auto 12px;
@@ -416,6 +427,11 @@ h1 {
     border-color: #1a3a1a;
 }
 
+.in-progress-header {
+    margin-top: 32px;
+    border-color: #1e4b68;
+}
+
 .section-title {
     font-size: 13px;
     font-weight: 700;
@@ -426,6 +442,10 @@ h1 {
 
 .completed-header .section-title {
     color: #336633;
+}
+
+.in-progress-header .section-title {
+    color: #4ba0d4;
 }
 
 .task-count {
@@ -446,6 +466,14 @@ h1 {
     border-color: #226622;
 }
 
+.in-progress-count {
+    background: #0a1f2d;
+    color: #66ccff;
+    border-color: #226688;
+}
+
+#clear-active-btn,
+#clear-in-progress-btn,
 #clear-completed-btn {
     padding: 5px 12px;
     background: #2a0a0a;
@@ -459,10 +487,78 @@ h1 {
     transition: background 0.15s, color 0.15s;
 }
 
+#clear-active-btn:hover,
+#clear-in-progress-btn:hover,
 #clear-completed-btn:hover {
     background: #3a1010;
     color: #ff6666;
     border-color: #aa3333;
+}
+
+#clear-active-btn {
+    background: #101036;
+    border-color: #2c2c74;
+    color: #7d8cff;
+}
+
+#clear-active-btn:hover {
+    background: #18184a;
+    border-color: #4f5bd6;
+    color: #b2b9ff;
+}
+
+#clear-in-progress-btn {
+    background: #0d2434;
+    border-color: #2c6485;
+    color: #74c8ff;
+}
+
+#clear-in-progress-btn:hover {
+    background: #123247;
+    border-color: #4ba0d4;
+    color: #d2f0ff;
+}
+
+.task-status-btn {
+    padding: 6px 12px;
+    background: #0f2440;
+    border: 1px solid #2d5f8e;
+    border-radius: 4px;
+    color: #78c5ff;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.task-status-btn:hover {
+    background: #173556;
+    color: #c7e7ff;
+    border-color: #4ea3e8;
+}
+
+.task-delete-btn {
+    padding: 6px 12px;
+    background: #301018;
+    border: 1px solid #8e3043;
+    border-radius: 4px;
+    color: #ff9aac;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.task-delete-btn:hover {
+    background: #461523;
+    color: #ffd6de;
+    border-color: #e85c7c;
+}
+
+.completed-task .task-status-btn {
+    display: none;
 }
 
 .empty-state {
