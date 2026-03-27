@@ -20,7 +20,11 @@ let timerPalette = { ...TIMER_COLOR_DEFAULTS };
 const timerDisplay  = document.getElementById('timer-display');
 const timerStatus   = document.getElementById('timer-status');
 const playPauseBtn  = document.getElementById('timer-play-pause');
+const playPauseBtnIcon = document.getElementById('timer-play-pause-icon');
+const playPauseBtnText = document.getElementById('timer-play-pause-text');
 const resetBtn      = document.getElementById('timer-reset');
+const resetBtnIcon  = document.getElementById('timer-reset-icon');
+const resetBtnText  = document.getElementById('timer-reset-text');
 const sub10Btn      = document.getElementById('timer-sub10');
 const sub5Btn       = document.getElementById('timer-sub5');
 const add5Btn       = document.getElementById('timer-add5');
@@ -98,12 +102,15 @@ function updateDisplay() {
     const remainingRatio = Math.min(Math.max(totalSeconds / safeDuration, 0), 1);
     const glowAlpha = remainingRatio > 0.5 ? '0.55' : '0.75';
     const shadowAlpha = remainingRatio > 0.5 ? '0.25' : '0.45';
-    const blendedColor = remainingRatio > 0.5
-        ? interpolateColor(timerPalette.mid, timerPalette.start, (remainingRatio - 0.5) / 0.5)
-        : interpolateColor(timerPalette.end, timerPalette.mid, remainingRatio / 0.5);
-    const timerColor = rgbToCss(blendedColor, 1);
-    const timerGlow = rgbToCss(blendedColor, glowAlpha);
-    const timerShadow = rgbToCss(blendedColor, shadowAlpha);
+    const phaseColor = remainingRatio > (2 / 3)
+        ? timerPalette.start
+        : remainingRatio > (1 / 3)
+            ? timerPalette.mid
+            : timerPalette.end;
+    const timerColor = phaseColor;
+    const phaseColorRgb = hexToRgb(phaseColor);
+    const timerGlow = rgbToCss(phaseColorRgb, glowAlpha);
+    const timerShadow = rgbToCss(phaseColorRgb, shadowAlpha);
 
     timerDisplay.textContent = formatTime(totalSeconds);
     timerDisplay.style.setProperty('--timer-color', timerColor);
@@ -234,7 +241,8 @@ function tick() {
         totalSeconds = 0;
         updateDisplay();
         timerStatus.textContent = 'QUEST COMPLETE!';
-        playPauseBtn.textContent = '\u25B6 START';
+        playPauseBtnIcon.src = 'play-button-icon.png';
+        playPauseBtnText.textContent = 'START';
         timerDisplay.classList.remove('running', 'danger');
         playAlarm();
         showTimerDoneNotification();
@@ -252,7 +260,8 @@ function togglePlayPause() {
     if (isRunning) {
         clearInterval(intervalId);
         isRunning = false;
-        playPauseBtn.textContent = '\u25B6 RESUME';
+        playPauseBtnIcon.src = 'play-button-icon.png';
+        playPauseBtnText.textContent = 'RESUME';
         timerStatus.textContent = 'PAUSED';
         timerDisplay.classList.remove('running', 'danger');
         document.title = 'Quest Log';
@@ -262,7 +271,8 @@ function togglePlayPause() {
         primeNotificationPermission();
         isRunning = true;
         intervalId = setInterval(tick, 1000);
-        playPauseBtn.textContent = '\u23F8 PAUSE';
+        playPauseBtnIcon.src = 'pause.png';
+        playPauseBtnText.textContent = 'PAUSE';
         timerStatus.textContent = 'FOCUSING...';
         updateDisplay();
         playTimerStart();
@@ -277,7 +287,8 @@ function resetTimer() {
     sessionDurationSeconds = POMODORO_DEFAULT;
     updateDisplay();
     timerStatus.textContent = 'READY';
-    playPauseBtn.textContent = '\u25B6 START';
+    playPauseBtnIcon.src = 'play-button-icon.png';
+    playPauseBtnText.textContent = 'START';
     timerDisplay.classList.remove('running', 'danger');
     document.title = 'Quest Log';
 }
