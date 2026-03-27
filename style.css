@@ -12,7 +12,7 @@ body {
         radial-gradient(ellipse at 55% 85%, #0d0a30 0%, transparent 45%),
         radial-gradient(ellipse at 75% 65%, #08141e 0%, transparent 40%);
     background-size: 300% 300%;
-    animation: bgDrift 14s ease-in-out infinite alternate;
+    animation: bgDrift 10s ease-in-out infinite alternate;
     min-height: 100vh;
     font-family: 'Rajdhani', sans-serif;
     color: #e0e0e0;
@@ -199,6 +199,27 @@ h1 {
 .timer-controls button:active,
 .timer-extra button:active {
     transform: translateY(1px);
+}
+
+#timer-play-pause,
+#timer-reset {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+#timer-play-pause-icon,
+#timer-reset-icon {
+    width: 18px;
+    height: 18px;
+    display: block;
+}
+
+#timer-play-pause-text,
+#timer-reset-text {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
 }
 
 #timer-play-pause {
