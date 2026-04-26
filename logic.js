@@ -120,12 +120,15 @@ function updateDisplay() {
     const timerGlow = rgbToCss(phaseColorRgb, glowAlpha);
     const timerShadow = rgbToCss(phaseColorRgb, shadowAlpha);
 
-    timerDisplay.textContent = formatTime(totalSeconds);
+    const displayText = formatTime(totalSeconds);
+
+    timerDisplay.textContent = displayText;
     timerDisplay.style.setProperty('--timer-color', timerColor);
     timerDisplay.style.setProperty('--timer-glow', timerGlow);
     timerDisplay.style.setProperty('--timer-shadow', timerShadow);
     timerDisplay.classList.toggle('danger',  isRunning && totalSeconds <= 60);
     timerDisplay.classList.toggle('running', isRunning && totalSeconds > 60);
+    timerDisplay.classList.toggle('hour-format', displayText.includes(':') && displayText.split(':').length === 3);
 
     if (timerTextInput && document.activeElement !== timerTextInput) {
         timerTextInput.value = formatTime(totalSeconds);
@@ -318,6 +321,30 @@ function addTime(minutes) {
 function parseGlobalTimerText(rawValue) {
     const value = String(rawValue || '').trim();
     if (!value) return null;
+
+    const lowerValue = value.toLowerCase();
+    const unitPattern = /(-?\d+(?:\.\d+)?)\s*([hms])/g;
+    let unitMatch;
+    let unitSeconds = 0;
+    let lastUnitMatchIndex = 0;
+
+    while ((unitMatch = unitPattern.exec(lowerValue)) !== null) {
+        const amount = Number(unitMatch[1]);
+        if (!Number.isFinite(amount) || amount < 0) return null;
+
+        const unit = unitMatch[2];
+        if (unit === 'h') unitSeconds += amount * 3600;
+        if (unit === 'm') unitSeconds += amount * 60;
+        if (unit === 's') unitSeconds += amount;
+
+        lastUnitMatchIndex = unitPattern.lastIndex;
+    }
+
+    if (lastUnitMatchIndex > 0) {
+        const remainingText = lowerValue.slice(lastUnitMatchIndex).trim();
+        if (remainingText.length > 0) return null;
+        return Math.max(0, Math.floor(unitSeconds));
+    }
 
     if (value.includes(':')) {
         const chunks = value.split(':').map((chunk) => Number(chunk));
