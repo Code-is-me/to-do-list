@@ -101,6 +101,30 @@ h1 {
     margin-bottom: 18px;
 }
 
+.timer-text-input {
+    max-width: 130px;
+    padding: 6px 10px;
+    background: #12122a;
+    border: 1px solid #3a3a9a;
+    border-radius: 4px;
+    color: #8888bb;
+    font-size: 12px;
+    font-weight: 500;
+    text-align: center;
+    letter-spacing: 1px;
+    outline: none;
+    margin-bottom: 12px;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.timer-text-input:focus {
+    border-color: #00eeff;
+    box-shadow: 0 0 8px #00eeff44;
+}
+
 .timer-controls {
     display: flex;
     justify-content: center;
@@ -352,7 +376,8 @@ h1 {
     border-radius: 6px;
     padding: 14px 16px;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
+    flex-wrap: wrap;
     gap: 10px;
     box-shadow: 0 2px 8px #00000066;
     transition: border-color 0.2s, box-shadow 0.2s;
@@ -368,7 +393,7 @@ h1 {
     align-items: center;
     gap: 14px;
     cursor: pointer;
-    flex: 1;
+    flex: 1 1 220px;
     min-width: 0;
 }
 
@@ -408,7 +433,7 @@ h1 {
     transform: translate(-50%, -50%);
 }
 
-.task-list span {
+.task-list label > .task-text {
     font-size: 18px;
     font-weight: 600;
     color: #ccccee;
@@ -540,6 +565,172 @@ h1 {
     color: #d2f0ff;
 }
 
+.task-timer-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 206px;
+    padding: 10px;
+    border: 1px solid #2f2f68;
+    border-radius: 8px;
+    background: linear-gradient(180deg, #11132b 0%, #0c0e22 100%);
+    box-shadow: inset 0 0 0 1px #16183a;
+}
+
+.task-timer-display {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 12px;
+    color: var(--task-timer-color, #7fe4ff);
+    letter-spacing: 1.5px;
+    text-align: center;
+    padding: 4px 0;
+    text-shadow: 0 0 8px var(--task-timer-glow, #17a9d3aa);
+}
+
+.task-timer-display.running {
+    animation: pulse 1s ease-in-out infinite;
+}
+
+.task-timer-display.danger {
+    text-shadow: 0 0 10px var(--task-timer-glow, #ff5566cc);
+    animation: pulse-fast 0.5s ease-in-out infinite;
+}
+
+.task-timer-display.done {
+    text-shadow: 0 0 10px var(--task-timer-glow, #ff9a33cc);
+}
+
+.task-timer-text-input {
+    width: 100%;
+    min-width: 0;
+    height: 30px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #3f3f88;
+    background: #141633;
+    color: #d7dcff;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    letter-spacing: 1px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.task-timer-text-input:focus {
+    border-color: #5aabda;
+    box-shadow: 0 0 0 2px #3f95c433;
+}
+
+.task-timer-input-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px;
+}
+
+.task-timer-color-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 4px;
+    border: 1px solid #3f3f88;
+    border-radius: 4px;
+    background: #141633;
+}
+
+.task-timer-color-hint {
+    font-size: 9px;
+    font-weight: 700;
+    color: #98a0e0;
+    letter-spacing: 0.8px;
+}
+
+.task-timer-color-input {
+    width: 24px;
+    height: 20px;
+    padding: 0;
+    border-radius: 3px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+}
+
+.task-timer-color-input::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.task-timer-color-input::-webkit-color-swatch {
+    border: none;
+    border-radius: 2px;
+}
+
+.task-timer-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.task-timer-minus-btn,
+.task-timer-plus-btn,
+.task-timer-toggle-btn,
+.task-timer-reset-btn {
+    min-height: 30px;
+    padding: 5px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.task-timer-minus-btn,
+.task-timer-plus-btn {
+    background: #171735;
+    border: 1px solid #3f3f88;
+    color: #b4b8ff;
+}
+
+.task-timer-minus-btn:hover,
+.task-timer-plus-btn:hover {
+    background: #20204a;
+    border-color: #6969cc;
+    color: #eceeff;
+}
+
+.task-timer-toggle-btn {
+    background: #0d2434;
+    border: 1px solid #2d6485;
+    color: #78d5ff;
+}
+
+.task-timer-toggle-btn:hover {
+    background: #15384e;
+    border-color: #54a5d2;
+    color: #e3f5ff;
+}
+
+.task-timer-reset-btn {
+    background: #2a1f0a;
+    border: 1px solid #85672d;
+    color: #e7c47a;
+}
+
+.task-timer-reset-btn:hover {
+    background: #3c2e12;
+    border-color: #c39a46;
+    color: #ffefc8;
+}
+
+.task-timer-minus-btn:disabled,
+.task-timer-plus-btn:disabled,
+.task-timer-toggle-btn:disabled,
+.task-timer-reset-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
 .task-status-btn {
     padding: 6px 12px;
     background: #0f2440;
@@ -578,6 +769,45 @@ h1 {
     border-color: #e85c7c;
 }
 
+.task-delete-confirm {
+    display: none;
+    gap: 6px;
+}
+
+.task-delete-yes-btn,
+.task-delete-no-btn {
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+}
+
+.task-delete-yes-btn {
+    background: #301018;
+    border: 1px solid #8e3043;
+    color: #ffb8c5;
+}
+
+.task-delete-yes-btn:hover {
+    background: #4a1828;
+    border-color: #e85c7c;
+    color: #ffe1e7;
+}
+
+.task-delete-no-btn {
+    background: #151534;
+    border: 1px solid #43439b;
+    color: #b4b8ff;
+}
+
+.task-delete-no-btn:hover {
+    background: #1e1e46;
+    border-color: #6a6aff;
+    color: #e0e3ff;
+}
+
 .completed-task .task-status-btn {
     display: none;
 }
@@ -591,4 +821,29 @@ h1 {
     letter-spacing: 2px;
     text-align: center;
     padding: 10px 0;
+}
+
+@media (max-width: 700px) {
+    .task-list li {
+        padding: 12px;
+    }
+
+    .task-list label {
+        flex-basis: 100%;
+    }
+
+    .task-timer-panel {
+        width: 100%;
+    }
+
+    .task-status-btn,
+    .task-delete-btn,
+    .task-delete-confirm {
+        flex: 1 1 calc(50% - 6px);
+    }
+
+    .task-delete-btn,
+    .task-delete-confirm button {
+        text-align: center;
+    }
 }

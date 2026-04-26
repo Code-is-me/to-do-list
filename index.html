@@ -18,15 +18,18 @@
 </head>
 <body>
     <!-- App title and subtitle -->
-    <h1>&#9876; Quest Log</h1>
-    <p class="subtitle">Complete your quests, Hero!</p>
+    <h1>Quest Log</h1>
+    <p class="subtitle">Make the impossible possible!</p>
 
     <!-- Pomodoro timer section:
          JS updates timer display, status text, and play/pause button text -->
     <div class="pomodoro-section">
-        <h2 class="pomodoro-title">&#9876; Focus Timer</h2>
+        <h2 class="pomodoro-title"> Focus Timer</h2>
         <div class="timer-display" id="timer-display">25:00</div>
         <div class="timer-status" id="timer-status">READY</div>
+
+        <!-- Quick timer text input -->
+        <input type="text" id="timer-text-input" class="timer-text-input" placeholder="MM:SS / HH:MM:SS / min" maxlength="16">
 
         <!-- Primary timer controls -->
         <div class="timer-controls">
@@ -75,9 +78,9 @@
         <button id="add-task-btn">+ Add Quest</button>
     </div>
 
-    <!-- Active quests header and counter -->
+    <!-- Active tasks header and counter -->
     <div class="section-header">
-        <span class="section-title">&#9876; Active Quests</span>
+        <span class="section-title">&#9876; Active Tasks</span>
         <span class="task-count" id="active-count">0</span>
         <button id="clear-active-btn">CLEAR ALL</button>
     </div>

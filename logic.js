@@ -19,6 +19,7 @@ let timerPalette = { ...TIMER_COLOR_DEFAULTS };
 // Timer-related DOM references.
 const timerDisplay  = document.getElementById('timer-display');
 const timerStatus   = document.getElementById('timer-status');
+const timerTextInput = document.getElementById('timer-text-input');
 const playPauseBtn  = document.getElementById('timer-play-pause');
 const playPauseBtnIcon = document.getElementById('timer-play-pause-icon');
 const playPauseBtnText = document.getElementById('timer-play-pause-text');
@@ -36,9 +37,16 @@ const timerColorResetBtn = document.getElementById('timer-color-reset');
 
 // Convert total seconds to MM:SS format for the timer display.
 function formatTime(secs) {
-    const m = Math.floor(secs / 60).toString().padStart(2, '0');
-    const s = (secs % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
+    const safeSeconds = Math.max(0, Math.floor(secs));
+    const h = Math.floor(safeSeconds / 3600);
+    const m = Math.floor((safeSeconds % 3600) / 60);
+    const s = safeSeconds % 60;
+
+    if (h > 0) {
+        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
 function hexToRgb(hex) {
@@ -118,6 +126,10 @@ function updateDisplay() {
     timerDisplay.style.setProperty('--timer-shadow', timerShadow);
     timerDisplay.classList.toggle('danger',  isRunning && totalSeconds <= 60);
     timerDisplay.classList.toggle('running', isRunning && totalSeconds > 60);
+
+    if (timerTextInput && document.activeElement !== timerTextInput) {
+        timerTextInput.value = formatTime(totalSeconds);
+    }
 }
 
 function updateTimerPalette() {
@@ -128,6 +140,7 @@ function updateTimerPalette() {
     };
     saveTimerPalette();
     updateDisplay();
+    refreshAllTaskTimerDisplays();
 }
 
 // Sound effect played when a new task is added.
@@ -301,6 +314,54 @@ function addTime(minutes) {
     if (!isRunning) timerStatus.textContent = 'READY';
 }
 
+// Parse global timer text input (MM:SS, HH:MM:SS, or minutes).
+function parseGlobalTimerText(rawValue) {
+    const value = String(rawValue || '').trim();
+    if (!value) return null;
+
+    if (value.includes(':')) {
+        const chunks = value.split(':').map((chunk) => Number(chunk));
+        if (chunks.some((chunk) => !Number.isFinite(chunk) || chunk < 0)) {
+            return null;
+        }
+
+        if (chunks.length === 2) {
+            const [mm, ss] = chunks;
+            if (ss > 59) return null;
+            return Math.max(0, (Math.floor(mm) * 60) + Math.floor(ss));
+        }
+
+        if (chunks.length === 3) {
+            const [hh, mm, ss] = chunks;
+            if (mm > 59 || ss > 59) return null;
+            return Math.max(0, (Math.floor(hh) * 3600) + (Math.floor(mm) * 60) + Math.floor(ss));
+        }
+
+        return null;
+    }
+
+    const minutes = Number(value);
+    if (!Number.isFinite(minutes) || minutes < 0) return null;
+
+    return Math.max(0, Math.floor(minutes * 60));
+}
+
+// Apply parsed value to global timer.
+function applyGlobalTimerTextValue(rawValue) {
+    const nextSeconds = parseGlobalTimerText(rawValue);
+    if (nextSeconds === null || nextSeconds === undefined) {
+        updateDisplay();
+        return;
+    }
+
+    if (isRunning) return;
+
+    totalSeconds = nextSeconds;
+    sessionDurationSeconds = Math.max(nextSeconds, 1);
+    updateDisplay();
+    if (!isRunning) timerStatus.textContent = 'READY';
+}
+
 // Wire timer buttons to their actions.
 playPauseBtn.addEventListener('click', togglePlayPause);
 resetBtn.addEventListener('click', resetTimer);
@@ -316,6 +377,19 @@ timerColorResetBtn.addEventListener('click', () => {
     syncTimerColorInputs();
     saveTimerPalette();
     updateDisplay();
+    refreshAllTaskTimerDisplays();
+});
+
+// Wire global timer text input.
+timerTextInput.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    applyGlobalTimerTextValue(timerTextInput.value);
+    timerTextInput.blur();
+});
+
+timerTextInput.addEventListener('blur', () => {
+    applyGlobalTimerTextValue(timerTextInput.value);
 });
 
 // Initial render on page load.
@@ -324,6 +398,13 @@ syncTimerColorInputs();
 updateDisplay();
 
 // ── Task list ──
+const TASKS_STORAGE_KEY = 'quest-log-tasks-v1';
+const TASK_TIMER_DEFAULT_SECONDS = 25 * 60;
+const TASK_TIMER_STEP_SECONDS = 60;
+const TASK_TIMER_MAX_SECONDS = 4 * 60 * 60;
+
+const taskTimerIntervals = new Map();
+
 // Task-related DOM references.
 const activeList = document.getElementById('active-list');
 const inProgressList = document.getElementById('in-progress-list');
@@ -339,6 +420,376 @@ const completedEmpty = document.getElementById('completed-empty');
 const clearActiveBtn = document.getElementById('clear-active-btn');
 const clearInProgressBtn = document.getElementById('clear-in-progress-btn');
 const clearCompletedBtn = document.getElementById('clear-completed-btn');
+
+function clampTaskTimerSeconds(value) {
+    return Math.min(Math.max(value, 0), TASK_TIMER_MAX_SECONDS);
+}
+
+function parseTaskNumber(value, fallback) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function parseTaskBoolean(value, fallback = false) {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') return value.toLowerCase() === 'true';
+    return fallback;
+}
+
+function generateTaskId() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+        return window.crypto.randomUUID();
+    }
+    return `task-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+}
+
+function normalizeTaskState(value) {
+    if (value === 'in-progress' || value === 'completed') return value;
+    return 'active';
+}
+
+function normalizeHexColor(value) {
+    const color = String(value || '').trim();
+    return /^#[0-9a-fA-F]{6}$/.test(color) ? color.toLowerCase() : '';
+}
+
+function normalizeTaskRecord(rawTask) {
+    const duration = clampTaskTimerSeconds(
+        parseTaskNumber(rawTask.timerDurationSeconds, TASK_TIMER_DEFAULT_SECONDS)
+    );
+    const remaining = clampTaskTimerSeconds(
+        parseTaskNumber(rawTask.timerRemainingSeconds, duration)
+    );
+    const running = parseTaskBoolean(rawTask.timerRunning, false) && remaining > 0;
+
+    return {
+        id: rawTask.id || generateTaskId(),
+        text: String(rawTask.text || '').trim(),
+        state: normalizeTaskState(rawTask.state),
+        timerDurationSeconds: Math.max(duration, 1),
+        timerRemainingSeconds: remaining,
+        timerRunning: running,
+        timerLastTickAt: running
+            ? parseTaskNumber(rawTask.timerLastTickAt, Date.now())
+            : null,
+        timerCustomColor: normalizeHexColor(rawTask.timerCustomColor),
+        createdAt: parseTaskNumber(rawTask.createdAt, Date.now())
+    };
+}
+
+function applyElapsedTimeToTask(task) {
+    if (!task.timerRunning || !task.timerLastTickAt) return task;
+
+    const elapsedSeconds = Math.floor((Date.now() - task.timerLastTickAt) / 1000);
+    if (elapsedSeconds <= 0) return task;
+
+    const nextRemaining = clampTaskTimerSeconds(task.timerRemainingSeconds - elapsedSeconds);
+    task.timerRemainingSeconds = nextRemaining;
+
+    if (nextRemaining <= 0) {
+        task.timerRunning = false;
+        task.timerLastTickAt = null;
+    } else {
+        task.timerLastTickAt = Date.now();
+    }
+
+    return task;
+}
+
+function getAllTaskItems() {
+    return [
+        ...activeList.querySelectorAll('li'),
+        ...inProgressList.querySelectorAll('li'),
+        ...completedList.querySelectorAll('li')
+    ];
+}
+
+function serializeTaskItem(li) {
+    const text = li.querySelector('.task-text')?.textContent || '';
+    const createdAt = parseTaskNumber(li.dataset.createdAt, Date.now());
+    const duration = Math.max(1, clampTaskTimerSeconds(parseTaskNumber(
+        li.dataset.timerDurationSeconds,
+        TASK_TIMER_DEFAULT_SECONDS
+    )));
+    const remaining = clampTaskTimerSeconds(parseTaskNumber(
+        li.dataset.timerRemainingSeconds,
+        duration
+    ));
+    const running = parseTaskBoolean(li.dataset.timerRunning, false) && remaining > 0;
+
+    return {
+        id: li.dataset.taskId || generateTaskId(),
+        text,
+        state: normalizeTaskState(li.dataset.state),
+        timerDurationSeconds: duration,
+        timerRemainingSeconds: remaining,
+        timerRunning: running,
+        timerLastTickAt: running ? parseTaskNumber(li.dataset.timerLastTickAt, Date.now()) : null,
+        timerCustomColor: normalizeHexColor(li.dataset.timerCustomColor),
+        createdAt
+    };
+}
+
+function saveTasks() {
+    const payload = getAllTaskItems().map(serializeTaskItem);
+    localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(payload));
+}
+
+function loadTasks() {
+    const raw = localStorage.getItem(TASKS_STORAGE_KEY);
+    if (!raw) return [];
+
+    try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed
+            .map(normalizeTaskRecord)
+            .filter((task) => task.text.length > 0)
+            .map(applyElapsedTimeToTask);
+    } catch (_) {
+        return [];
+    }
+}
+
+function showTaskTimerDoneNotification(taskText) {
+    if (!("Notification" in window)) return;
+    if (Notification.permission !== 'granted') return;
+
+    try {
+        new Notification('Task Timer Complete', {
+            body: `Finished: ${taskText}`,
+            tag: `quest-log-task-timer-${taskText}`
+        });
+    } catch (_) { }
+}
+
+function stopTaskTimerInterval(taskId) {
+    const existing = taskTimerIntervals.get(taskId);
+    if (!existing) return;
+    clearInterval(existing);
+    taskTimerIntervals.delete(taskId);
+}
+
+function updateTaskTimerDisplay(li) {
+    const remaining = clampTaskTimerSeconds(parseTaskNumber(li.dataset.timerRemainingSeconds, 0));
+    const duration = Math.max(1, clampTaskTimerSeconds(parseTaskNumber(
+        li.dataset.timerDurationSeconds,
+        TASK_TIMER_DEFAULT_SECONDS
+    )));
+    const isTaskRunning = parseTaskBoolean(li.dataset.timerRunning, false) && remaining > 0;
+    const remainingRatio = Math.min(Math.max(remaining / duration, 0), 1);
+    const phaseColor = remainingRatio > (2 / 3)
+        ? timerPalette.start
+        : remainingRatio > (1 / 3)
+            ? timerPalette.mid
+            : timerPalette.end;
+    const customColor = normalizeHexColor(li.dataset.timerCustomColor);
+    const displayColor = customColor || phaseColor;
+    const displayColorRgb = hexToRgb(displayColor);
+
+    const display = li.querySelector('.task-timer-display');
+    const textInput = li.querySelector('.task-timer-text-input');
+    const colorInput = li.querySelector('.task-timer-color-input');
+    const toggleBtn = li.querySelector('.task-timer-toggle-btn');
+    const minusBtn = li.querySelector('.task-timer-minus-btn');
+    const plusBtn = li.querySelector('.task-timer-plus-btn');
+
+    display.textContent = formatTime(remaining);
+    display.style.setProperty('--task-timer-color', displayColor);
+    display.style.setProperty('--task-timer-glow', rgbToCss(displayColorRgb, 0.7));
+    display.classList.toggle('running', isTaskRunning);
+    display.classList.toggle('danger', isTaskRunning && remaining <= 60);
+    display.classList.toggle('done', remaining <= 0);
+
+    if (textInput && document.activeElement !== textInput) {
+        textInput.value = formatTime(remaining);
+    }
+
+    if (colorInput && document.activeElement !== colorInput) {
+        colorInput.value = customColor || phaseColor;
+    }
+
+    toggleBtn.textContent = isTaskRunning ? 'PAUSE' : 'START';
+    toggleBtn.disabled = !isTaskRunning && remaining <= 0;
+    minusBtn.disabled = remaining <= 0;
+    plusBtn.disabled = remaining >= TASK_TIMER_MAX_SECONDS;
+}
+
+function refreshAllTaskTimerDisplays() {
+    getAllTaskItems().forEach((li) => {
+        updateTaskTimerDisplay(li);
+    });
+}
+
+function pauseTaskTimer(li, options = {}) {
+    const { playSound = true, shouldSave = true } = options;
+
+    li.dataset.timerRunning = 'false';
+    li.dataset.timerLastTickAt = '';
+    stopTaskTimerInterval(li.dataset.taskId);
+
+    updateTaskTimerDisplay(li);
+    if (playSound) playTimerStop();
+    if (shouldSave) saveTasks();
+}
+
+function finishTaskTimer(li, shouldSave = true) {
+    li.dataset.timerRemainingSeconds = '0';
+    li.dataset.timerRunning = 'false';
+    li.dataset.timerLastTickAt = '';
+    stopTaskTimerInterval(li.dataset.taskId);
+
+    updateTaskTimerDisplay(li);
+    playAlarm();
+
+    const taskText = li.querySelector('.task-text')?.textContent || 'Task';
+    showTaskTimerDoneNotification(taskText);
+
+    if (shouldSave) saveTasks();
+}
+
+function tickTaskTimer(li) {
+    if (!document.body.contains(li)) {
+        stopTaskTimerInterval(li.dataset.taskId);
+        return;
+    }
+
+    const isTaskRunning = parseTaskBoolean(li.dataset.timerRunning, false);
+    if (!isTaskRunning) {
+        stopTaskTimerInterval(li.dataset.taskId);
+        return;
+    }
+
+    const remaining = clampTaskTimerSeconds(parseTaskNumber(li.dataset.timerRemainingSeconds, 0));
+    if (remaining <= 0) {
+        finishTaskTimer(li);
+        return;
+    }
+
+    const nextRemaining = clampTaskTimerSeconds(remaining - 1);
+    li.dataset.timerRemainingSeconds = String(nextRemaining);
+    li.dataset.timerLastTickAt = String(Date.now());
+
+    if (nextRemaining <= 0) {
+        finishTaskTimer(li);
+        return;
+    }
+
+    updateTaskTimerDisplay(li);
+    saveTasks();
+}
+
+function startTaskTimer(li, options = {}) {
+    const { playSound = true, shouldSave = true } = options;
+    const remaining = clampTaskTimerSeconds(parseTaskNumber(li.dataset.timerRemainingSeconds, 0));
+
+    if (remaining <= 0) return;
+    if (taskTimerIntervals.has(li.dataset.taskId)) return;
+
+    li.dataset.timerRunning = 'true';
+    li.dataset.timerLastTickAt = String(Date.now());
+
+    const taskInterval = setInterval(() => {
+        tickTaskTimer(li);
+    }, 1000);
+
+    taskTimerIntervals.set(li.dataset.taskId, taskInterval);
+    updateTaskTimerDisplay(li);
+
+    if (playSound) playTimerStart();
+    if (shouldSave) saveTasks();
+}
+
+function toggleTaskTimer(li) {
+    const isTaskRunning = parseTaskBoolean(li.dataset.timerRunning, false);
+    if (isTaskRunning) {
+        pauseTaskTimer(li);
+        return;
+    }
+
+    primeNotificationPermission();
+    startTaskTimer(li);
+}
+
+function resetTaskTimer(li) {
+    pauseTaskTimer(li, { playSound: false, shouldSave: false });
+
+    li.dataset.timerDurationSeconds = String(TASK_TIMER_DEFAULT_SECONDS);
+    li.dataset.timerRemainingSeconds = String(TASK_TIMER_DEFAULT_SECONDS);
+    updateTaskTimerDisplay(li);
+    saveTasks();
+}
+
+function adjustTaskTimer(li, deltaSeconds) {
+    const currentRemaining = clampTaskTimerSeconds(parseTaskNumber(li.dataset.timerRemainingSeconds, 0));
+    const nextRemaining = clampTaskTimerSeconds(currentRemaining + deltaSeconds);
+
+    li.dataset.timerRemainingSeconds = String(nextRemaining);
+
+    const duration = Math.max(1, clampTaskTimerSeconds(parseTaskNumber(
+        li.dataset.timerDurationSeconds,
+        TASK_TIMER_DEFAULT_SECONDS
+    )));
+
+    if (nextRemaining > duration) {
+        li.dataset.timerDurationSeconds = String(nextRemaining);
+    }
+
+    if (nextRemaining <= 0) {
+        pauseTaskTimer(li, { playSound: false, shouldSave: false });
+    }
+
+    updateTaskTimerDisplay(li);
+    saveTasks();
+}
+
+function parseTaskTimerTextToSeconds(rawValue) {
+    const value = String(rawValue || '').trim();
+    if (!value) return null;
+
+    if (value.includes(':')) {
+        const chunks = value.split(':').map((chunk) => Number(chunk));
+        if (chunks.some((chunk) => !Number.isFinite(chunk) || chunk < 0)) {
+            return null;
+        }
+
+        if (chunks.length === 2) {
+            const [mm, ss] = chunks;
+            if (ss > 59) return null;
+            return clampTaskTimerSeconds((Math.floor(mm) * 60) + Math.floor(ss));
+        }
+
+        if (chunks.length === 3) {
+            const [hh, mm, ss] = chunks;
+            if (mm > 59 || ss > 59) return null;
+            return clampTaskTimerSeconds((Math.floor(hh) * 3600) + (Math.floor(mm) * 60) + Math.floor(ss));
+        }
+
+        return null;
+    }
+
+    const minutes = Number(value);
+    if (!Number.isFinite(minutes) || minutes < 0) return null;
+
+    return clampTaskTimerSeconds(Math.floor(minutes * 60));
+}
+
+function applyTaskTimerTextValue(li, rawValue) {
+    const nextSeconds = parseTaskTimerTextToSeconds(rawValue);
+    if (nextSeconds === null) {
+        updateTaskTimerDisplay(li);
+        return;
+    }
+
+    if (nextSeconds <= 0) {
+        pauseTaskTimer(li, { playSound: false, shouldSave: false });
+    }
+
+    li.dataset.timerDurationSeconds = String(Math.max(nextSeconds, 1));
+    li.dataset.timerRemainingSeconds = String(nextSeconds);
+    updateTaskTimerDisplay(li);
+    saveTasks();
+}
 
 // Recalculate counters and show/hide empty-state messages.
 function updateCounts() {
@@ -451,18 +902,23 @@ function confirmAndClearList(listEl, sectionLabel) {
     const shouldClear = window.confirm(`Are you sure you want to clear all ${sectionLabel} tasks?`);
     if (!shouldClear) return;
 
+    listEl.querySelectorAll('li').forEach((li) => {
+        pauseTaskTimer(li, { playSound: false, shouldSave: false });
+    });
     listEl.innerHTML = '';
     updateCounts();
+    saveTasks();
 }
 
-function setTaskState(li, state, shouldPlayMoveSound = false) {
+function setTaskState(li, state, shouldPlayMoveSound = false, shouldSave = true) {
     const checkbox = li.querySelector('input[type="checkbox"]');
-    const taskText = li.querySelector('span');
+    const taskText = li.querySelector('.task-text');
     const statusBtn = li.querySelector('.task-status-btn');
 
     li.dataset.state = state;
 
     if (state === 'completed') {
+        pauseTaskTimer(li, { playSound: false, shouldSave: false });
         checkbox.checked = true;
         taskText.classList.add('completed');
         li.classList.add('completed-task');
@@ -485,6 +941,7 @@ function setTaskState(li, state, shouldPlayMoveSound = false) {
     }
 
     updateCounts();
+    if (shouldSave) saveTasks();
 }
 
 // Attach change behavior to one checkbox.
@@ -492,10 +949,10 @@ function attachCheckboxListener(checkbox) {
     checkbox.addEventListener('change', () => {
         const li = checkbox.closest('li');
         if (checkbox.checked) {
-            setTaskState(li, 'completed');
+            setTaskState(li, 'completed', false, true);
             playTaskDone();
         } else {
-            setTaskState(li, 'active');
+            setTaskState(li, 'active', false, true);
         }
     });
 }
@@ -504,45 +961,193 @@ function attachStatusButtonListener(button) {
     button.addEventListener('click', () => {
         const li = button.closest('li');
         const nextState = li.dataset.state === 'in-progress' ? 'active' : 'in-progress';
-        setTaskState(li, nextState, nextState === 'in-progress');
+        setTaskState(li, nextState, nextState === 'in-progress', true);
     });
 }
 
-function attachDeleteButtonListener(button) {
-    button.addEventListener('click', () => {
-        const li = button.closest('li');
+function attachDeleteButtonListener(deleteBtn, confirmWrap, yesBtn, noBtn) {
+    function showConfirmButtons() {
+        deleteBtn.style.display = 'none';
+        confirmWrap.style.display = 'flex';
+    }
+
+    function hideConfirmButtons() {
+        confirmWrap.style.display = 'none';
+        deleteBtn.style.display = 'inline-block';
+    }
+
+    deleteBtn.addEventListener('click', () => {
+        showConfirmButtons();
+    });
+
+    noBtn.addEventListener('click', () => {
+        hideConfirmButtons();
+    });
+
+    yesBtn.addEventListener('click', () => {
+        const li = deleteBtn.closest('li');
+        pauseTaskTimer(li, { playSound: false, shouldSave: false });
         li.remove();
         playTaskDelete();
         updateCounts();
+        saveTasks();
     });
 }
 
-function createTaskItem(text) {
+function attachTaskTimerListeners(li, minusBtn, plusBtn, toggleBtn, resetBtnEl, textInput, colorInput) {
+    minusBtn.addEventListener('click', () => {
+        adjustTaskTimer(li, -TASK_TIMER_STEP_SECONDS);
+    });
+
+    plusBtn.addEventListener('click', () => {
+        adjustTaskTimer(li, TASK_TIMER_STEP_SECONDS);
+    });
+
+    toggleBtn.addEventListener('click', () => {
+        toggleTaskTimer(li);
+    });
+
+    resetBtnEl.addEventListener('click', () => {
+        resetTaskTimer(li);
+    });
+
+    textInput.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        applyTaskTimerTextValue(li, textInput.value);
+        textInput.blur();
+    });
+
+    textInput.addEventListener('blur', () => {
+        applyTaskTimerTextValue(li, textInput.value);
+    });
+
+    colorInput.addEventListener('input', () => {
+        li.dataset.timerCustomColor = normalizeHexColor(colorInput.value);
+        updateTaskTimerDisplay(li);
+        saveTasks();
+    });
+}
+
+function createTaskItem(task) {
     const li = document.createElement('li');
     const label = document.createElement('label');
     const checkbox = document.createElement('input');
     const span = document.createElement('span');
+    const timerPanel = document.createElement('div');
+    const timerDisplayEl = document.createElement('span');
+    const timerAdjustRow = document.createElement('div');
+    const timerInputRow = document.createElement('div');
+    const timerTextInput = document.createElement('input');
+    const timerColorWrap = document.createElement('label');
+    const timerColorHint = document.createElement('span');
+    const timerColorInput = document.createElement('input');
+    const timerMinusBtn = document.createElement('button');
+    const timerPlusBtn = document.createElement('button');
+    const timerActionRow = document.createElement('div');
+    const timerToggleBtn = document.createElement('button');
+    const timerResetBtn = document.createElement('button');
     const statusBtn = document.createElement('button');
     const deleteBtn = document.createElement('button');
+    const deleteConfirmWrap = document.createElement('div');
+    const deleteYesBtn = document.createElement('button');
+    const deleteNoBtn = document.createElement('button');
+
+    li.dataset.taskId = task.id;
+    li.dataset.createdAt = String(task.createdAt);
+    li.dataset.timerDurationSeconds = String(task.timerDurationSeconds);
+    li.dataset.timerRemainingSeconds = String(task.timerRemainingSeconds);
+    li.dataset.timerRunning = task.timerRunning ? 'true' : 'false';
+    li.dataset.timerLastTickAt = task.timerLastTickAt ? String(task.timerLastTickAt) : '';
+    li.dataset.timerCustomColor = normalizeHexColor(task.timerCustomColor);
 
     checkbox.type = 'checkbox';
-    span.textContent = text;
+    span.className = 'task-text';
+    span.textContent = task.text;
+
+    timerPanel.className = 'task-timer-panel';
+    timerDisplayEl.className = 'task-timer-display';
+    timerDisplayEl.textContent = formatTime(task.timerRemainingSeconds);
+
+    timerTextInput.type = 'text';
+    timerTextInput.className = 'task-timer-text-input';
+    timerTextInput.inputMode = 'numeric';
+    timerTextInput.placeholder = 'MM:SS / HH:MM:SS / min';
+    timerTextInput.value = formatTime(task.timerRemainingSeconds);
+
+    timerInputRow.className = 'task-timer-input-row';
+    timerColorWrap.className = 'task-timer-color-wrap';
+    timerColorHint.className = 'task-timer-color-hint';
+    timerColorHint.textContent = 'CLR';
+
+    timerColorInput.type = 'color';
+    timerColorInput.className = 'task-timer-color-input';
+    timerColorInput.value = normalizeHexColor(task.timerCustomColor) || timerPalette.start;
+
+    timerAdjustRow.className = 'task-timer-row';
+    timerMinusBtn.type = 'button';
+    timerMinusBtn.className = 'task-timer-minus-btn';
+    timerMinusBtn.textContent = '-1M';
+    timerPlusBtn.type = 'button';
+    timerPlusBtn.className = 'task-timer-plus-btn';
+    timerPlusBtn.textContent = '+1M';
+
+    timerActionRow.className = 'task-timer-row';
+    timerToggleBtn.type = 'button';
+    timerToggleBtn.className = 'task-timer-toggle-btn';
+    timerToggleBtn.textContent = 'START';
+    timerResetBtn.type = 'button';
+    timerResetBtn.className = 'task-timer-reset-btn';
+    timerResetBtn.textContent = 'RESET';
+
     statusBtn.type = 'button';
     statusBtn.className = 'task-status-btn';
     statusBtn.textContent = 'START';
+
     deleteBtn.type = 'button';
     deleteBtn.className = 'task-delete-btn';
     deleteBtn.textContent = 'DELETE';
 
+    deleteConfirmWrap.className = 'task-delete-confirm';
+    deleteYesBtn.type = 'button';
+    deleteYesBtn.className = 'task-delete-yes-btn';
+    deleteYesBtn.textContent = 'YES';
+    deleteNoBtn.type = 'button';
+    deleteNoBtn.className = 'task-delete-no-btn';
+    deleteNoBtn.textContent = 'NO';
+
+    timerAdjustRow.appendChild(timerMinusBtn);
+    timerAdjustRow.appendChild(timerPlusBtn);
+    timerActionRow.appendChild(timerToggleBtn);
+    timerActionRow.appendChild(timerResetBtn);
+
+    timerColorWrap.appendChild(timerColorHint);
+    timerColorWrap.appendChild(timerColorInput);
+    timerInputRow.appendChild(timerTextInput);
+    timerInputRow.appendChild(timerColorWrap);
+
+    timerPanel.appendChild(timerDisplayEl);
+    timerPanel.appendChild(timerInputRow);
+    timerPanel.appendChild(timerAdjustRow);
+    timerPanel.appendChild(timerActionRow);
+
+    deleteConfirmWrap.appendChild(deleteYesBtn);
+    deleteConfirmWrap.appendChild(deleteNoBtn);
+
     label.appendChild(checkbox);
     label.appendChild(span);
+
     li.appendChild(label);
+    li.appendChild(timerPanel);
     li.appendChild(statusBtn);
     li.appendChild(deleteBtn);
+    li.appendChild(deleteConfirmWrap);
 
     attachCheckboxListener(checkbox);
     attachStatusButtonListener(statusBtn);
-    attachDeleteButtonListener(deleteBtn);
+    attachDeleteButtonListener(deleteBtn, deleteConfirmWrap, deleteYesBtn, deleteNoBtn);
+    attachTaskTimerListeners(li, timerMinusBtn, timerPlusBtn, timerToggleBtn, timerResetBtn, timerTextInput, timerColorInput);
+    updateTaskTimerDisplay(li);
 
     return li;
 }
@@ -552,12 +1157,39 @@ function addTask() {
     const text = newTaskInput.value.trim();
     if (!text) return;
 
-    const li = createTaskItem(text);
-    activeList.appendChild(li);
-    updateCounts();
+    const task = normalizeTaskRecord({
+        id: generateTaskId(),
+        text,
+        state: 'active',
+        timerDurationSeconds: TASK_TIMER_DEFAULT_SECONDS,
+        timerRemainingSeconds: TASK_TIMER_DEFAULT_SECONDS,
+        timerRunning: false,
+        createdAt: Date.now()
+    });
+
+    const li = createTaskItem(task);
+    setTaskState(li, task.state, false, true);
     playAddTask();
     newTaskInput.value = '';
     newTaskInput.focus();
+}
+
+function hydrateTasksFromStorage() {
+    const savedTasks = loadTasks();
+    if (savedTasks.length === 0) return;
+
+    savedTasks.forEach((task) => {
+        const li = createTaskItem(task);
+        setTaskState(li, task.state, false, false);
+
+        if (task.timerRunning && task.timerRemainingSeconds > 0) {
+            startTaskTimer(li, { playSound: false, shouldSave: false });
+        } else {
+            updateTaskTimerDisplay(li);
+        }
+    });
+
+    saveTasks();
 }
 
 // Add task by button click.
@@ -581,4 +1213,5 @@ clearCompletedBtn.addEventListener('click', () => {
 });
 
 // Initial counter/empty-state sync on first load.
+hydrateTasksFromStorage();
 updateCounts();
