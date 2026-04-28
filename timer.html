@@ -1,0 +1,67 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" href="style.css">
+	<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+	<title>Quest Log — Timer</title>
+</head>
+<body>
+	<h1>Quest Log</h1>
+	<p class="subtitle">Make the impossible possible!</p>
+
+	<div class="pomodoro-section">
+		<h2 class="pomodoro-title"> Focus Timer</h2>
+		<div class="timer-display" id="timer-display">25:00</div>
+		<div class="timer-status" id="timer-status">READY</div>
+
+		<input type="text" id="timer-text-input" class="timer-text-input" placeholder="HH:MM:SS / 1h 30m / min" maxlength="20">
+
+		<div class="timer-controls">
+			<button id="timer-play-pause">
+				<img id="timer-play-pause-icon" src="play-button-icon.png" alt="Play">
+				<span id="timer-play-pause-text">START</span>
+			</button>
+			<button id="timer-reset">
+				<img id="timer-reset-icon" src="undo.png" alt="Reset">
+				<span id="timer-reset-text">RESET</span>
+			</button>
+		</div>
+
+		<div class="timer-extra">
+			<button id="timer-sub10">-10 MIN</button>
+			<button id="timer-sub5">-5 MIN</button>
+			<button id="timer-add5">+5 MIN</button>
+			<button id="timer-add10">+10 MIN</button>
+		</div>
+
+		<div class="timer-theme-editor">
+			<h3 class="timer-theme-title">Timer Colors</h3>
+			<div class="timer-theme-controls">
+				<label class="timer-color-control">
+					<span>Start</span>
+					<input type="color" id="timer-color-start" value="#44ff88">
+				</label>
+				<label class="timer-color-control">
+					<span>Mid</span>
+					<input type="color" id="timer-color-mid" value="#ffb000">
+				</label>
+				<label class="timer-color-control">
+					<span>End</span>
+					<input type="color" id="timer-color-end" value="#ff3355">
+				</label>
+			</div>
+			<button id="timer-color-reset">RESET COLORS</button>
+		</div>
+	</div>
+
+	<div style="max-width:620px;margin:18px auto;text-align:center;">
+		<button id="back-to-main" onclick="window.location.href='index.html'" style="padding:10px 14px;border-radius:6px;background:#3a3aff;border:2px solid #6060ff;color:#fff;cursor:pointer;">← Back to Previous Page</button>
+	</div>
+
+	<script src="logic.js"></script>
+</body>
+</html>
+

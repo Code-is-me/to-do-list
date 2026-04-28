@@ -21,102 +21,110 @@
     <h1>Quest Log</h1>
     <p class="subtitle">Make the impossible possible!</p>
 
-    <!-- Pomodoro timer section:
-         JS updates timer display, status text, and play/pause button text -->
-    <div class="pomodoro-section">
-        <h2 class="pomodoro-title"> Focus Timer</h2>
-        <div class="timer-display" id="timer-display">25:00</div>
-        <div class="timer-status" id="timer-status">READY</div>
+    <main class="dashboard-layout">
+        <section class="dashboard-panel">
+            <!-- Pomodoro timer section:
+                 JS updates timer display, status text, and play/pause button text -->
+            <div class="pomodoro-section">
+                <h2 class="pomodoro-title"> Focus Timer</h2>
+                <div class="timer-display" id="timer-display">25:00</div>
+                <div class="timer-status" id="timer-status">READY</div>
 
-        <!-- Quick timer text input -->
-        <input type="text" id="timer-text-input" class="timer-text-input" placeholder="HH:MM:SS / 1h 30m / min" maxlength="20">
+                <!-- Quick timer text input -->
+                <input type="text" id="timer-text-input" class="timer-text-input" placeholder="HH:MM:SS / 1h 30m / min" maxlength="20">
 
-        <!-- Primary timer controls -->
-        <div class="timer-controls">
-            <button id="timer-play-pause">
-                <img id="timer-play-pause-icon" src="play-button-icon.png" alt="Play">
-                <span id="timer-play-pause-text">START</span>
-            </button>
-            <button id="timer-reset">
-                <img id="timer-reset-icon" src="undo.png" alt="Reset">
-                <span id="timer-reset-text">RESET</span>
-            </button>
-        </div>
+                <!-- Primary timer controls -->
+                <div class="timer-controls">
+                    <button id="timer-play-pause">
+                        <img id="timer-play-pause-icon" src="play-button-icon.png" alt="Play">
+                        <span id="timer-play-pause-text">START</span>
+                    </button>
+                    <button id="timer-reset">
+                        <img id="timer-reset-icon" src="undo.png" alt="Reset">
+                        <span id="timer-reset-text">RESET</span>
+                    </button>
+                    <button id="open-timer-btn" onclick="window.location.href='timer.html'">OPEN TIMER</button>
+                </div>
 
-        <!-- Quick-add time controls -->
-        <div class="timer-extra">
-            <button id="timer-sub10">-10 MIN</button>
-            <button id="timer-sub5">-5 MIN</button>
-            <button id="timer-add5">+5 MIN</button>
-            <button id="timer-add10">+10 MIN</button>
-        </div>
+                <!-- Quick-add time controls -->
+                <div class="timer-extra">
+                    <button id="timer-sub10">-10 MIN</button>
+                    <button id="timer-sub5">-5 MIN</button>
+                    <button id="timer-add5">+5 MIN</button>
+                    <button id="timer-add10">+10 MIN</button>
+                </div>
 
-        <!-- Timer color editor -->
-        <div class="timer-theme-editor">
-            <h3 class="timer-theme-title">Timer Colors</h3>
-            <div class="timer-theme-controls">
-                <label class="timer-color-control">
-                    <span>Start</span>
-                    <input type="color" id="timer-color-start" value="#44ff88">
-                </label>
-                <label class="timer-color-control">
-                    <span>Mid</span>
-                    <input type="color" id="timer-color-mid" value="#ffb000">
-                </label>
-                <label class="timer-color-control">
-                    <span>End</span>
-                    <input type="color" id="timer-color-end" value="#ff3355">
-                </label>
+                <!-- Timer color editor -->
+                <div class="timer-footer-grid">
+                    <!-- In-progress tasks shown beside timer colors -->
+                    <section class="in-progress-panel">
+                        <div class="section-header in-progress-header compact-header">
+                            <span class="section-title">&#9203; In Progress</span>
+                            <span class="task-count in-progress-count" id="in-progress-count">0</span>
+                            <button id="clear-in-progress-btn">CLEAR ALL</button>
+                        </div>
+
+                        <p class="empty-state" id="in-progress-empty">No quests in progress...</p>
+
+                        <ul class="task-list in-progress-list" id="in-progress-list"></ul>
+                    </section>
+
+                    <div class="timer-theme-editor">
+                        <h3 class="timer-theme-title">Timer Colors</h3>
+                        <div class="timer-theme-controls">
+                            <label class="timer-color-control">
+                                <span>Start</span>
+                                <input type="color" id="timer-color-start" value="#44ff88">
+                            </label>
+                            <label class="timer-color-control">
+                                <span>Mid</span>
+                                <input type="color" id="timer-color-mid" value="#ffb000">
+                            </label>
+                            <label class="timer-color-control">
+                                <span>End</span>
+                                <input type="color" id="timer-color-end" value="#ff3355">
+                            </label>
+                        </div>
+                        <button id="timer-color-reset">RESET COLORS</button>
+                    </div>
+                </div>
             </div>
-            <button id="timer-color-reset">RESET COLORS</button>
-        </div>
-    </div>
 
-    <!-- Add new quest input row -->
-    <div class="add-task-section">
-        <input type="text" id="new-task-input" placeholder="Enter a new quest..." maxlength="100">
-        <button id="add-task-btn">+ Add Quest</button>
-    </div>
+            <section class="task-board">
+                <!-- Add new quest input row -->
+                <div class="add-task-section">
+                    <input type="text" id="new-task-input" placeholder="Enter a new quest..." maxlength="100">
+                    <button id="add-task-btn">+ Add Quest</button>
+                </div>
 
-    <!-- Active tasks header and counter -->
-    <div class="section-header">
-        <span class="section-title">&#9876; Active Tasks</span>
-        <span class="task-count" id="active-count">0</span>
-        <button id="clear-active-btn">CLEAR ALL</button>
-    </div>
+                <!-- Active tasks header and counter -->
+                <div class="section-header">
+                    <span class="section-title">&#9876; Active Tasks</span>
+                    <span class="task-count" id="active-count">0</span>
+                    <button id="clear-active-btn">CLEAR ALL</button>
+                </div>
 
-    <!-- Empty-state message shown when there are no active tasks -->
-    <p class="empty-state" id="active-empty">All quests complete, hero!</p>
+                <!-- Empty-state message shown when there are no active tasks -->
+                <p class="empty-state" id="active-empty">All quests complete, hero!</p>
 
-    <!-- Active tasks list (new tasks are appended here by JS) -->
-    <ul class="task-list" id="active-list">
-    </ul>
+                <!-- Active tasks list (new tasks are appended here by JS) -->
+                <ul class="task-list" id="active-list"></ul>
 
-    <!-- In-progress quests header and counter -->
-    <div class="section-header in-progress-header">
-        <span class="section-title">&#9203; In Progress</span>
-        <span class="task-count in-progress-count" id="in-progress-count">0</span>
-        <button id="clear-in-progress-btn">CLEAR ALL</button>
-    </div>
+                <!-- Completed quests header, counter, and clear action -->
+                <div class="section-header completed-header">
+                    <span class="section-title">&#9733; Completed Quests</span>
+                    <span class="task-count completed-count" id="completed-count">0</span>
+                    <button id="clear-completed-btn">CLEAR ALL</button>
+                </div>
 
-    <!-- Empty-state message shown when there are no in-progress tasks -->
-    <p class="empty-state" id="in-progress-empty">No quests in progress...</p>
+                <!-- Empty-state message shown when there are no completed tasks -->
+                <p class="empty-state" id="completed-empty">No quests completed yet...</p>
 
-    <!-- In-progress tasks list -->
-    <ul class="task-list in-progress-list" id="in-progress-list"></ul>
-
-    <!-- Completed quests header, counter, and clear action -->
-    <div class="section-header completed-header">
-        <span class="section-title">&#9733; Completed Quests</span>
-        <span class="task-count completed-count" id="completed-count">0</span>
-        <button id="clear-completed-btn">CLEAR ALL</button>
-    </div>
-
-    <!-- Empty-state message shown when there are no completed tasks -->
-    <p class="empty-state" id="completed-empty">No quests completed yet...</p>
-
-    <!-- Completed tasks list (checked tasks are moved here by JS) -->
-    <ul class="task-list completed-list" id="completed-list"></ul>
+                <!-- Completed tasks list (checked tasks are moved here by JS) -->
+                <ul class="task-list completed-list" id="completed-list"></ul>
+            </section>
+        </section>
+    </main>
 
     <!-- Main app logic: timer, task management, and sound effects -->
     <script src="logic.js"></script>

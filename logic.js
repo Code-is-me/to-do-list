@@ -7,6 +7,9 @@ let totalSeconds = POMODORO_DEFAULT;
 let sessionDurationSeconds = POMODORO_DEFAULT;
 let isRunning = false;
 let intervalId = null;
+let timerEndTimestamp = null;
+let currentLinkedTaskId = null;
+ 
 
 const TIMER_COLOR_DEFAULTS = {
     start: '#44ff88',
@@ -135,6 +138,65 @@ function updateDisplay() {
     }
 }
 
+function getLiveTimerRemainingSeconds() {
+    if (!isRunning || timerEndTimestamp === null) {
+        return totalSeconds;
+    }
+
+    return Math.max(0, Math.ceil((timerEndTimestamp - Date.now()) / 1000));
+}
+
+function finishTimer() {
+    clearInterval(intervalId);
+    intervalId = null;
+    isRunning = false;
+    timerEndTimestamp = null;
+    totalSeconds = 0;
+    updateDisplay();
+    timerStatus.textContent = 'QUEST COMPLETE!';
+    playPauseBtnIcon.src = 'play-button-icon.png';
+    playPauseBtnText.textContent = 'START';
+    timerDisplay.classList.remove('running', 'danger');
+    playAlarm();
+    showTimerDoneNotification();
+    document.title = '\u2705 Done! | Quest Log';
+}
+
+function syncRunningTimer() {
+    if (!isRunning) return;
+
+    const remaining = getLiveTimerRemainingSeconds();
+    totalSeconds = remaining;
+
+    if (remaining <= 0) {
+        if (currentLinkedTaskId) {
+            const linked = document.querySelector(`[data-task-id="${currentLinkedTaskId}"]`);
+            if (linked) {
+                // finish the linked task which will also finish the global timer
+                finishTaskTimer(linked);
+                return;
+            }
+        }
+
+        finishTimer();
+        return;
+    }
+
+    // If a task is linked, push the remaining seconds back to its dataset so displays stay in sync
+    if (currentLinkedTaskId) {
+        const linked = document.querySelector(`[data-task-id="${currentLinkedTaskId}"]`);
+        if (linked) {
+            linked.dataset.timerRemainingSeconds = String(totalSeconds);
+            linked.dataset.timerLastTickAt = String(Date.now());
+            updateTaskTimerDisplay(linked);
+            saveTasks();
+        }
+    }
+
+    updateDisplay();
+    document.title = `${formatTime(totalSeconds)} | Quest Log`;
+}
+
 function updateTimerPalette() {
     timerPalette = {
         start: timerColorStartInput.value,
@@ -251,41 +313,32 @@ function showTimerDoneNotification() {
 
 // One timer tick: decrease remaining time and refresh UI.
 function tick() {
-    if (totalSeconds <= 0) {
-        clearInterval(intervalId);
-        isRunning = false;
-        totalSeconds = 0;
-        updateDisplay();
-        timerStatus.textContent = 'QUEST COMPLETE!';
-        playPauseBtnIcon.src = 'play-button-icon.png';
-        playPauseBtnText.textContent = 'START';
-        timerDisplay.classList.remove('running', 'danger');
-        playAlarm();
-        showTimerDoneNotification();
-        document.title = '\u2705 Done! | Quest Log';
-        return;
-    }
+    syncRunningTimer();
+    if (!isRunning) return;
 
-    totalSeconds--;
-    updateDisplay();
     document.title = `${formatTime(totalSeconds)} | Quest Log`;
 }
 
 // Start/pause toggle for Pomodoro timer.
 function togglePlayPause() {
     if (isRunning) {
+        totalSeconds = getLiveTimerRemainingSeconds();
         clearInterval(intervalId);
+        intervalId = null;
         isRunning = false;
+        timerEndTimestamp = null;
         playPauseBtnIcon.src = 'play-button-icon.png';
         playPauseBtnText.textContent = 'RESUME';
         timerStatus.textContent = 'PAUSED';
         timerDisplay.classList.remove('running', 'danger');
+        updateDisplay();
         document.title = 'Quest Log';
         playTimerStop();
     } else {
         if (totalSeconds <= 0) return;
         primeNotificationPermission();
         isRunning = true;
+        timerEndTimestamp = Date.now() + (totalSeconds * 1000);
         intervalId = setInterval(tick, 1000);
         playPauseBtnIcon.src = 'pause.png';
         playPauseBtnText.textContent = 'PAUSE';
@@ -298,7 +351,9 @@ function togglePlayPause() {
 // Stop timer and return it to default 25:00 state.
 function resetTimer() {
     clearInterval(intervalId);
+    intervalId = null;
     isRunning = false;
+    timerEndTimestamp = null;
     totalSeconds = POMODORO_DEFAULT;
     sessionDurationSeconds = POMODORO_DEFAULT;
     updateDisplay();
@@ -407,6 +462,15 @@ timerColorResetBtn.addEventListener('click', () => {
     refreshAllTaskTimerDisplays();
 });
 
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+        syncRunningTimer();
+    }
+});
+
+window.addEventListener('focus', syncRunningTimer);
+window.addEventListener('pageshow', syncRunningTimer);
+
 // Wire global timer text input.
 timerTextInput.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter') return;
@@ -425,6 +489,11 @@ syncTimerColorInputs();
 updateDisplay();
 
 // ── Task list ──
+// If the page doesn't include task lists (timer-only page), skip task initialization
+const _hasTaskElements = !!document.getElementById('active-list');
+if (!_hasTaskElements) {
+    function refreshAllTaskTimerDisplays() {}
+} else {
 const TASKS_STORAGE_KEY = 'quest-log-tasks-v1';
 const TASK_TIMER_DEFAULT_SECONDS = 25 * 60;
 const TASK_TIMER_STEP_SECONDS = 60;
@@ -621,12 +690,14 @@ function updateTaskTimerDisplay(li) {
     const minusBtn = li.querySelector('.task-timer-minus-btn');
     const plusBtn = li.querySelector('.task-timer-plus-btn');
 
-    display.textContent = formatTime(remaining);
-    display.style.setProperty('--task-timer-color', displayColor);
-    display.style.setProperty('--task-timer-glow', rgbToCss(displayColorRgb, 0.7));
-    display.classList.toggle('running', isTaskRunning);
-    display.classList.toggle('danger', isTaskRunning && remaining <= 60);
-    display.classList.toggle('done', remaining <= 0);
+    if (display) {
+        display.textContent = formatTime(remaining);
+        display.style.setProperty('--task-timer-color', displayColor);
+        display.style.setProperty('--task-timer-glow', rgbToCss(displayColorRgb, 0.7));
+        display.classList.toggle('running', isTaskRunning);
+        display.classList.toggle('danger', isTaskRunning && remaining <= 60);
+        display.classList.toggle('done', remaining <= 0);
+    }
 
     if (textInput && document.activeElement !== textInput) {
         textInput.value = formatTime(remaining);
@@ -636,10 +707,10 @@ function updateTaskTimerDisplay(li) {
         colorInput.value = customColor || phaseColor;
     }
 
-    toggleBtn.textContent = isTaskRunning ? 'PAUSE' : 'START';
-    toggleBtn.disabled = !isTaskRunning && remaining <= 0;
-    minusBtn.disabled = remaining <= 0;
-    plusBtn.disabled = remaining >= TASK_TIMER_MAX_SECONDS;
+    if (toggleBtn) toggleBtn.textContent = isTaskRunning ? 'PAUSE' : 'START';
+    if (toggleBtn) toggleBtn.disabled = !isTaskRunning && remaining <= 0;
+    if (minusBtn) minusBtn.disabled = remaining <= 0;
+    if (plusBtn) plusBtn.disabled = remaining >= TASK_TIMER_MAX_SECONDS;
 }
 
 function refreshAllTaskTimerDisplays() {
@@ -655,8 +726,21 @@ function pauseTaskTimer(li, options = {}) {
     li.dataset.timerLastTickAt = '';
     stopTaskTimerInterval(li.dataset.taskId);
 
+    // If this task was driving the global timer, pause the global timer as well
+    if (currentLinkedTaskId && currentLinkedTaskId === li.dataset.taskId) {
+        currentLinkedTaskId = null;
+        clearInterval(intervalId);
+        intervalId = null;
+        isRunning = false;
+        timerEndTimestamp = null;
+        playPauseBtnIcon.src = 'play-button-icon.png';
+        playPauseBtnText.textContent = 'RESUME';
+        timerStatus.textContent = 'PAUSED';
+        timerDisplay.classList.remove('running', 'danger');
+    }
+
     updateTaskTimerDisplay(li);
-    if (playSound) playTimerStop();
+    if (playSound && !(currentLinkedTaskId === li.dataset.taskId)) playTimerStop();
     if (shouldSave) saveTasks();
 }
 
@@ -673,6 +757,12 @@ function finishTaskTimer(li, shouldSave = true) {
     showTaskTimerDoneNotification(taskText);
 
     if (shouldSave) saveTasks();
+
+    // If this task was linked to the global timer, finish the global timer too
+    if (currentLinkedTaskId && currentLinkedTaskId === li.dataset.taskId) {
+        currentLinkedTaskId = null;
+        finishTimer();
+    }
 }
 
 function tickTaskTimer(li) {
@@ -707,12 +797,47 @@ function tickTaskTimer(li) {
 }
 
 function startTaskTimer(li, options = {}) {
+    console.debug('[Task] startTaskTimer called', li?.dataset?.taskId, options);
     const { playSound = true, shouldSave = true } = options;
     const remaining = clampTaskTimerSeconds(parseTaskNumber(li.dataset.timerRemainingSeconds, 0));
 
     if (remaining <= 0) return;
     if (taskTimerIntervals.has(li.dataset.taskId)) return;
 
+    // If caller requested linking with the global timer, use the global timer as source of truth
+    if (options.linkWithGlobal) {
+        // If another task is linked, pause it first
+        if (currentLinkedTaskId && currentLinkedTaskId !== li.dataset.taskId) {
+            const prev = document.querySelector(`[data-task-id="${currentLinkedTaskId}"]`);
+            if (prev) pauseTaskTimer(prev, { playSound: false, shouldSave: true });
+        }
+
+        currentLinkedTaskId = li.dataset.taskId;
+        li.dataset.timerRunning = 'true';
+        li.dataset.timerLastTickAt = String(Date.now());
+
+        // Start or update the global timer to match this task
+        totalSeconds = remaining;
+        sessionDurationSeconds = Math.max(parseTaskNumber(li.dataset.timerDurationSeconds, remaining), 1);
+        timerEndTimestamp = Date.now() + (totalSeconds * 1000);
+
+        if (!isRunning) {
+            isRunning = true;
+            intervalId = setInterval(tick, 1000);
+        }
+
+        playPauseBtnIcon.src = 'pause.png';
+        playPauseBtnText.textContent = 'PAUSE';
+        timerStatus.textContent = 'FOCUSING...';
+        updateDisplay();
+        playTimerStart();
+
+        updateTaskTimerDisplay(li);
+        if (shouldSave) saveTasks();
+        return;
+    }
+
+    // Default: start a dedicated per-task interval
     li.dataset.timerRunning = 'true';
     li.dataset.timerLastTickAt = String(Date.now());
 
@@ -735,7 +860,8 @@ function toggleTaskTimer(li) {
     }
 
     primeNotificationPermission();
-    startTaskTimer(li);
+    // When starting a task from the main UI, link it with the global timer so the pomodoro controls drive it
+    startTaskTimer(li, { linkWithGlobal: true });
 }
 
 function resetTaskTimer(li) {
@@ -959,12 +1085,20 @@ function setTaskState(li, state, shouldPlayMoveSound = false, shouldSave = true)
         statusBtn.textContent = 'BACK';
         inProgressList.appendChild(li);
         if (shouldPlayMoveSound) playTaskInProgress();
+        // Start and link this task's timer to the global timer
+        try {
+            startTaskTimer(li, { linkWithGlobal: true });
+        } catch (_) { }
     } else {
         checkbox.checked = false;
         taskText.classList.remove('completed');
         li.classList.remove('completed-task', 'in-progress-task');
         statusBtn.textContent = 'START';
         activeList.appendChild(li);
+        // Pause any running timer for this task when moving back to active
+        try {
+            pauseTaskTimer(li, { playSound: false, shouldSave: true });
+        } catch (_) { }
     }
 
     updateCounts();
@@ -988,6 +1122,7 @@ function attachStatusButtonListener(button) {
     button.addEventListener('click', () => {
         const li = button.closest('li');
         const nextState = li.dataset.state === 'in-progress' ? 'active' : 'in-progress';
+        console.debug('[Task] status button clicked', li.dataset.taskId, '->', nextState);
         setTaskState(li, nextState, nextState === 'in-progress', true);
     });
 }
@@ -1061,19 +1196,6 @@ function createTaskItem(task) {
     const label = document.createElement('label');
     const checkbox = document.createElement('input');
     const span = document.createElement('span');
-    const timerPanel = document.createElement('div');
-    const timerDisplayEl = document.createElement('span');
-    const timerAdjustRow = document.createElement('div');
-    const timerInputRow = document.createElement('div');
-    const timerTextInput = document.createElement('input');
-    const timerColorWrap = document.createElement('label');
-    const timerColorHint = document.createElement('span');
-    const timerColorInput = document.createElement('input');
-    const timerMinusBtn = document.createElement('button');
-    const timerPlusBtn = document.createElement('button');
-    const timerActionRow = document.createElement('div');
-    const timerToggleBtn = document.createElement('button');
-    const timerResetBtn = document.createElement('button');
     const statusBtn = document.createElement('button');
     const deleteBtn = document.createElement('button');
     const deleteConfirmWrap = document.createElement('div');
@@ -1092,41 +1214,6 @@ function createTaskItem(task) {
     span.className = 'task-text';
     span.textContent = task.text;
 
-    timerPanel.className = 'task-timer-panel';
-    timerDisplayEl.className = 'task-timer-display';
-    timerDisplayEl.textContent = formatTime(task.timerRemainingSeconds);
-
-    timerTextInput.type = 'text';
-    timerTextInput.className = 'task-timer-text-input';
-    timerTextInput.inputMode = 'numeric';
-    timerTextInput.placeholder = 'MM:SS / HH:MM:SS / min';
-    timerTextInput.value = formatTime(task.timerRemainingSeconds);
-
-    timerInputRow.className = 'task-timer-input-row';
-    timerColorWrap.className = 'task-timer-color-wrap';
-    timerColorHint.className = 'task-timer-color-hint';
-    timerColorHint.textContent = 'CLR';
-
-    timerColorInput.type = 'color';
-    timerColorInput.className = 'task-timer-color-input';
-    timerColorInput.value = normalizeHexColor(task.timerCustomColor) || timerPalette.start;
-
-    timerAdjustRow.className = 'task-timer-row';
-    timerMinusBtn.type = 'button';
-    timerMinusBtn.className = 'task-timer-minus-btn';
-    timerMinusBtn.textContent = '-1M';
-    timerPlusBtn.type = 'button';
-    timerPlusBtn.className = 'task-timer-plus-btn';
-    timerPlusBtn.textContent = '+1M';
-
-    timerActionRow.className = 'task-timer-row';
-    timerToggleBtn.type = 'button';
-    timerToggleBtn.className = 'task-timer-toggle-btn';
-    timerToggleBtn.textContent = 'START';
-    timerResetBtn.type = 'button';
-    timerResetBtn.className = 'task-timer-reset-btn';
-    timerResetBtn.textContent = 'RESET';
-
     statusBtn.type = 'button';
     statusBtn.className = 'task-status-btn';
     statusBtn.textContent = 'START';
@@ -1143,21 +1230,6 @@ function createTaskItem(task) {
     deleteNoBtn.className = 'task-delete-no-btn';
     deleteNoBtn.textContent = 'NO';
 
-    timerAdjustRow.appendChild(timerMinusBtn);
-    timerAdjustRow.appendChild(timerPlusBtn);
-    timerActionRow.appendChild(timerToggleBtn);
-    timerActionRow.appendChild(timerResetBtn);
-
-    timerColorWrap.appendChild(timerColorHint);
-    timerColorWrap.appendChild(timerColorInput);
-    timerInputRow.appendChild(timerTextInput);
-    timerInputRow.appendChild(timerColorWrap);
-
-    timerPanel.appendChild(timerDisplayEl);
-    timerPanel.appendChild(timerInputRow);
-    timerPanel.appendChild(timerAdjustRow);
-    timerPanel.appendChild(timerActionRow);
-
     deleteConfirmWrap.appendChild(deleteYesBtn);
     deleteConfirmWrap.appendChild(deleteNoBtn);
 
@@ -1165,7 +1237,6 @@ function createTaskItem(task) {
     label.appendChild(span);
 
     li.appendChild(label);
-    li.appendChild(timerPanel);
     li.appendChild(statusBtn);
     li.appendChild(deleteBtn);
     li.appendChild(deleteConfirmWrap);
@@ -1173,8 +1244,6 @@ function createTaskItem(task) {
     attachCheckboxListener(checkbox);
     attachStatusButtonListener(statusBtn);
     attachDeleteButtonListener(deleteBtn, deleteConfirmWrap, deleteYesBtn, deleteNoBtn);
-    attachTaskTimerListeners(li, timerMinusBtn, timerPlusBtn, timerToggleBtn, timerResetBtn, timerTextInput, timerColorInput);
-    updateTaskTimerDisplay(li);
 
     return li;
 }
@@ -1242,3 +1311,4 @@ clearCompletedBtn.addEventListener('click', () => {
 // Initial counter/empty-state sync on first load.
 hydrateTasksFromStorage();
 updateCounts();
+}
